@@ -1,985 +1,1000 @@
-// ═══════════════════════════════════════════════
-// LEARNSPHERE — app.js (Full Auth + Dashboard)
-// ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════
+   LEARNSPHERE – Main Application Logic
+   ═══════════════════════════════════════ */
 
-// ── CONFIG ──
-const RESEND_API_KEY = 're_JVdRXyad_JD1oEKmEUFActBPeH2Ye3XLJ';
-const ADMIN_EMAILS = ['admin@learnsphere.com'];
+// ─── STATE ───
+let currentUser = { name: 'Learner', onboardingComplete: false, progress: {}, completedTopics: [] };
+let learningPath = null;
 
-// ── STATE ──
-let state = {
-  token: localStorage.getItem('ls_token') || null,
-  user: JSON.parse(localStorage.getItem('ls_user')) || null,
-  path: JSON.parse(localStorage.getItem('ls_path')) || null,
-  skillGapSummary: localStorage.getItem('ls_summary') || '',
-  registeredUsers: JSON.parse(localStorage.getItem('ls_users')) || {},
-  pendingOTP: null,
-  testQuestions: [],
-  currentQuestion: 0,
-  score: 0,
-  answers: []
-};
-
-// ─────────────────────────────────────────────
-// BOOT
-// ─────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  setupAllOTPBoxes();
-  setupPasswordStrength();
-  protectRoutes();
-
-  if (state.token && state.user) {
-    if (!state.user.onboardingComplete) {
-      showPage('onboarding');
-    } else {
-      showPage('app');
-      loadDashboard();
-    }
+// ─── INIT ───
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('ls_user');
+  if (saved) {
+    currentUser = JSON.parse(saved);
   } else {
-    showPage('login');
+    localStorage.setItem('ls_user', JSON.stringify(currentUser));
   }
-});
-
-function saveState() {
-  if (state.token) localStorage.setItem('ls_token', state.token);
-  if (state.user) localStorage.setItem('ls_user', JSON.stringify(state.user));
-  if (state.path) localStorage.setItem('ls_path', JSON.stringify(state.path));
-  if (state.skillGapSummary) localStorage.setItem('ls_summary', state.skillGapSummary);
-  localStorage.setItem('ls_users', JSON.stringify(state.registeredUsers));
-}
-
-// ─────────────────────────────────────────────
-// ROUTE PROTECTION & RBAC
-// ─────────────────────────────────────────────
-function protectRoutes() {
-  // Block admin URL access
-  const blockedPaths = ['/admin', '/administrator', '/admin-panel', '/manage'];
-  const currentPath = window.location.pathname.toLowerCase();
-  if (blockedPaths.some(p => currentPath.includes(p))) {
-    window.location.href = '/';
-    return;
-  }
-
-  // Listen for hash changes
-  window.addEventListener('hashchange', () => {
-    const hash = window.location.hash.toLowerCase();
-    if (hash.includes('admin')) {
-      window.location.hash = '';
-      if (!isAdmin()) {
-        showPage('login');
-        return;
-      }
-    }
-  });
-}
-
-function isAdmin() {
-  return state.user && ADMIN_EMAILS.includes(state.user.email?.toLowerCase());
-}
-
-function requireAuth() {
-  if (!state.token || !state.user) {
-    showPage('login');
-    return false;
-  }
-  return true;
-}
-
-// ─────────────────────────────────────────────
-// PAGE ROUTING
-// ─────────────────────────────────────────────
-function showPage(name) {
-  // Auth guard — only login/signup accessible without auth
-  const publicPages = ['login', 'signup'];
-  if (!publicPages.includes(name) && !state.token) {
-    name = 'login';
-  }
-
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const page = document.getElementById('page-' + name);
-  if (page) {
-    page.classList.add('active');
-    // Reset page scroll
-    page.style.display = '';
-  }
-}
-
-function showTab(name) {
-  if (!requireAuth()) return;
-
-  document.querySelectorAll('.tab-section').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.header-nav-btn').forEach(n => n.classList.remove('active'));
-  document.getElementById('tab-' + name)?.classList.add('active');
-  document.getElementById('hnav-' + name)?.classList.add('active');
-  if (name === 'roadmap') renderRoadmap();
-  if (name === 'mocktest') resetTest();
-}
-
-// ─────────────────────────────────────────────
-// OTP GENERATION (using Resend API)
-// ─────────────────────────────────────────────
-function generateOTP() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-async function sendOTPEmail(email, otp) {
-  try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'LearnSphere <onboarding@resend.dev>',
-        to: [email],
-        subject: 'Your LearnSphere Verification Code',
-        html: `
-          <div style="font-family: 'Inter', sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
-            <div style="text-align: center; margin-bottom: 32px;">
-              <h1 style="color: #0056d2; font-size: 22px; margin: 0;">🎓 LEARNSPHERE</h1>
-              <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Smart Personalized Learning</p>
-            </div>
-            <div style="background: #f5f7fa; border-radius: 12px; padding: 32px; text-align: center;">
-              <p style="color: #4b5563; margin-bottom: 16px;">Your verification code is:</p>
-              <div style="font-size: 36px; font-weight: 800; color: #0056d2; letter-spacing: 8px; margin-bottom: 16px;">${otp}</div>
-              <p style="color: #9ca3af; font-size: 12px;">This code expires in 10 minutes.</p>
-            </div>
-            <p style="color: #9ca3af; font-size: 11px; text-align: center; margin-top: 24px;">If you didn't request this code, you can safely ignore this email.</p>
-          </div>
-        `
-      }),
-    });
-    return response.ok;
-  } catch (err) {
-    console.warn('Email API failed, using local OTP:', err);
-    return false;
-  }
-}
-
-// ─────────────────────────────────────────────
-// LOGIN FLOW: Email → Password → OTP
-// ─────────────────────────────────────────────
-async function loginEmailStep() {
-  const email = document.getElementById('login-email').value.trim().toLowerCase();
-  const errEl = document.getElementById('login-email-error');
-  errEl.classList.add('hidden');
-
-  if (!email || !/\S+@\S+\.\S+/.test(email)) {
-    showError(errEl, 'Please enter a valid email address.');
-    return;
-  }
-
-  // Check if user exists
-  if (!state.registeredUsers[email]) {
-    showError(errEl, 'No account found with this email. Please sign up first.');
-    return;
-  }
-
-  document.getElementById('login-email-display').textContent = email;
-  document.getElementById('login-step-email').classList.add('hidden');
-  document.getElementById('login-step-password').classList.remove('hidden');
-  document.getElementById('login-password').focus();
-}
-
-async function loginPasswordStep() {
-  const email = document.getElementById('login-email').value.trim().toLowerCase();
-  const password = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-pw-error');
-  errEl.classList.add('hidden');
-
-  if (!password) {
-    showError(errEl, 'Please enter your password.');
-    return;
-  }
-
-  const user = state.registeredUsers[email];
-  if (!user || user.password !== hashPassword(password)) {
-    showError(errEl, 'Incorrect password. Please try again.');
-    return;
-  }
-
-  // Generate and send OTP
-  const otp = generateOTP();
-  state.pendingOTP = { email, otp, expiresAt: Date.now() + 600000 };
-
-  const btn = document.querySelector('#login-step-password .btn-primary');
-  btn.disabled = true;
-  btn.textContent = 'Sending OTP…';
-
-  const emailSent = await sendOTPEmail(email, otp);
-
-  if (!emailSent) {
-    // Fallback: auto-fill for demo
-    console.log('📧 OTP for demo:', otp);
-    const otpBoxes = document.querySelectorAll('#login-step-otp .otp-box');
-    otp.split('').forEach((d, i) => { if (otpBoxes[i]) otpBoxes[i].value = d; });
-  }
-
-  document.getElementById('login-otp-email').textContent = email;
-  document.getElementById('login-step-password').classList.add('hidden');
-  document.getElementById('login-step-otp').classList.remove('hidden');
-  btn.disabled = false;
-  btn.innerHTML = 'Verify & Send OTP <span class="btn-arrow">→</span>';
-}
-
-async function loginVerifyOTP() {
-  const otpBoxes = document.querySelectorAll('#login-step-otp .otp-box');
-  const otp = Array.from(otpBoxes).map(b => b.value).join('');
-  const errEl = document.getElementById('login-otp-error');
-  errEl.classList.add('hidden');
-
-  if (otp.length !== 6) {
-    showError(errEl, 'Please enter all 6 digits.');
-    return;
-  }
-
-  if (!state.pendingOTP || state.pendingOTP.otp !== otp) {
-    showError(errEl, 'Invalid OTP. Please try again.');
-    return;
-  }
-
-  if (Date.now() > state.pendingOTP.expiresAt) {
-    showError(errEl, 'OTP has expired. Please request a new one.');
-    return;
-  }
-
-  // Success — login
-  const email = state.pendingOTP.email;
-  const userData = state.registeredUsers[email];
-  state.token = 'jwt_' + btoa(email + ':' + Date.now());
-  state.user = {
-    email,
-    name: userData.name,
-    role: ADMIN_EMAILS.includes(email) ? 'admin' : 'user',
-    onboardingComplete: userData.onboardingComplete || false,
-    currentSkills: userData.currentSkills || [],
-    learningGoal: userData.learningGoal || '',
-    targetCertification: userData.targetCertification || '',
-    experienceLevel: userData.experienceLevel || ''
-  };
-  state.pendingOTP = null;
-
-  // Restore saved path if exists
-  const savedPath = localStorage.getItem('ls_path_' + email);
-  if (savedPath) {
-    state.path = JSON.parse(savedPath);
-    state.skillGapSummary = localStorage.getItem('ls_summary_' + email) || '';
-  }
-
-  saveState();
-
-  if (!state.user.onboardingComplete) {
-    showPage('onboarding');
-  } else {
+  
+  if (currentUser.onboardingComplete) {
     showPage('app');
     loadDashboard();
-  }
-}
-
-function loginGoBack() {
-  document.getElementById('login-step-password').classList.add('hidden');
-  document.getElementById('login-step-otp').classList.add('hidden');
-  document.getElementById('login-step-email').classList.remove('hidden');
-  document.getElementById('login-password').value = '';
-  clearOTPBoxes('#login-step-otp .otp-box');
-}
-
-// ─────────────────────────────────────────────
-// SIGNUP FLOW: Form → OTP → Success
-// ─────────────────────────────────────────────
-async function signupSubmit() {
-  const name = document.getElementById('signup-name').value.trim();
-  const email = document.getElementById('signup-email').value.trim().toLowerCase();
-  const password = document.getElementById('signup-password').value;
-  const confirm = document.getElementById('signup-confirm').value;
-  const errEl = document.getElementById('signup-error');
-  errEl.classList.add('hidden');
-
-  // Validations
-  if (!name) { showError(errEl, 'Please enter your full name.'); return; }
-  if (!email || !/\S+@\S+\.\S+/.test(email)) { showError(errEl, 'Please enter a valid email address.'); return; }
-  if (password.length < 8) { showError(errEl, 'Password must be at least 8 characters.'); return; }
-  if (password !== confirm) { showError(errEl, 'Passwords do not match.'); return; }
-  if (state.registeredUsers[email]) { showError(errEl, 'An account with this email already exists. Please log in.'); return; }
-
-  // Generate and send OTP
-  const otp = generateOTP();
-  state.pendingOTP = { email, otp, name, password: hashPassword(password), expiresAt: Date.now() + 600000 };
-
-  const btn = document.querySelector('#signup-step-form .btn-primary');
-  btn.disabled = true;
-  btn.textContent = 'Sending OTP…';
-
-  const emailSent = await sendOTPEmail(email, otp);
-
-  if (!emailSent) {
-    console.log('📧 Signup OTP for demo:', otp);
-    const otpBoxes = document.querySelectorAll('#signup-step-otp .otp-box');
-    otp.split('').forEach((d, i) => { if (otpBoxes[i]) otpBoxes[i].value = d; });
-  }
-
-  document.getElementById('signup-otp-email').textContent = email;
-  document.getElementById('signup-step-form').classList.add('hidden');
-  document.getElementById('signup-step-otp').classList.remove('hidden');
-  btn.disabled = false;
-  btn.innerHTML = 'Create Account <span class="btn-arrow">→</span>';
-}
-
-async function signupVerifyOTP() {
-  const otpBoxes = document.querySelectorAll('#signup-step-otp .otp-box');
-  const otp = Array.from(otpBoxes).map(b => b.value).join('');
-  const errEl = document.getElementById('signup-otp-error');
-  errEl.classList.add('hidden');
-
-  if (otp.length !== 6) { showError(errEl, 'Please enter all 6 digits.'); return; }
-  if (!state.pendingOTP || state.pendingOTP.otp !== otp) { showError(errEl, 'Invalid OTP. Please try again.'); return; }
-  if (Date.now() > state.pendingOTP.expiresAt) { showError(errEl, 'OTP has expired. Please try again.'); return; }
-
-  // Register the user
-  const { email, name, password } = state.pendingOTP;
-  state.registeredUsers[email] = {
-    name,
-    password,
-    email,
-    role: ADMIN_EMAILS.includes(email) ? 'admin' : 'user',
-    createdAt: new Date().toISOString(),
-    onboardingComplete: false
-  };
-  state.pendingOTP = null;
-  saveState();
-
-  // Send confirmation email
-  await sendOTPEmail(email, '').catch(() => {});
-
-  // Show success
-  document.getElementById('signup-step-otp').classList.add('hidden');
-  document.getElementById('signup-step-success').classList.remove('hidden');
-
-  // Redirect to login after 3 seconds
-  setTimeout(() => {
-    document.getElementById('signup-step-success').classList.add('hidden');
-    document.getElementById('signup-step-form').classList.remove('hidden');
-    // Reset form
-    document.getElementById('signup-name').value = '';
-    document.getElementById('signup-email').value = '';
-    document.getElementById('signup-password').value = '';
-    document.getElementById('signup-confirm').value = '';
-    clearOTPBoxes('#signup-step-otp .otp-box');
-    showPage('login');
-  }, 3000);
-}
-
-// ─────────────────────────────────────────────
-// PASSWORD UTILITIES
-// ─────────────────────────────────────────────
-function hashPassword(pw) {
-  // Simple hash for client-side demo — in production, use bcrypt on the server
-  let hash = 0;
-  for (let i = 0; i < pw.length; i++) {
-    const char = pw.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return 'hash_' + Math.abs(hash).toString(36);
-}
-
-function togglePw(inputId, btn) {
-  const input = document.getElementById(inputId);
-  if (input.type === 'password') {
-    input.type = 'text';
-    btn.textContent = '🙈';
   } else {
-    input.type = 'password';
-    btn.textContent = '👁️';
+    showPage('onboarding');
   }
+
+  setupDomainDropdown();
+  renderDomainGrid();
+
+  // Init shared chat engine
+  loadChatThreads();
+  renderThreadList();
+  renderChatMessages();
+  renderMiniChat();
+});
+
+// ─── PAGE NAVIGATION ───
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
 }
 
-function setupPasswordStrength() {
-  const pwInput = document.getElementById('signup-password');
-  if (!pwInput) return;
-  pwInput.addEventListener('input', () => {
-    const pw = pwInput.value;
-    const strengthEl = document.getElementById('pw-strength');
-    const fillEl = document.getElementById('pw-bar-fill');
-    const labelEl = document.getElementById('pw-strength-label');
+function showTab(tabId) {
+  document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+  const tab = document.getElementById('tab-' + tabId);
+  if (tab) tab.classList.add('active');
+  // Update nav
+  document.querySelectorAll('.header-nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+  const hBtn = document.getElementById('hnav-' + tabId);
+  const mBtn = document.getElementById('mnav-' + tabId);
+  if (hBtn) hBtn.classList.add('active');
+  if (mBtn) mBtn.classList.add('active');
+}
 
-    if (pw.length === 0) { strengthEl.classList.add('hidden'); return; }
-    strengthEl.classList.remove('hidden');
+// ─── TOAST ───
+function showToast(msg, type = '', duration = 5000) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.innerHTML = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), duration);
+}
 
-    let score = 0;
-    if (pw.length >= 8) score++;
-    if (pw.length >= 12) score++;
-    if (/[A-Z]/.test(pw)) score++;
-    if (/[0-9]/.test(pw)) score++;
-    if (/[^A-Za-z0-9]/.test(pw)) score++;
+// Removed auth and password code
 
-    const levels = [
-      { width: '20%', color: '#dc2626', label: 'Very Weak' },
-      { width: '40%', color: '#f97316', label: 'Weak' },
-      { width: '60%', color: '#eab308', label: 'Fair' },
-      { width: '80%', color: '#22c55e', label: 'Strong' },
-      { width: '100%', color: '#16a34a', label: 'Very Strong' },
-    ];
-    const level = levels[Math.min(score, levels.length - 1)];
-    fillEl.style.width = level.width;
-    fillEl.style.background = level.color;
-    labelEl.textContent = level.label;
-    labelEl.style.color = level.color;
+// ─── ONBOARDING ───
+const CAREER_MAP = {
+  "Core IT & Software": ["Full Stack Developer", "Backend Developer", "Mobile App Developer", "DevOps Engineer", "QA Engineer"],
+  "Data & Analytics": ["Data Analyst", "Data Scientist", "BI Developer"],
+  "Cloud Computing": ["Cloud Architect", "Cloud Engineer", "DevOps Engineer"],
+  "Cybersecurity": ["Security Analyst", "Ethical Hacker", "SOC Analyst"],
+  "AI & Machine Learning": ["ML Engineer", "AI Researcher", "NLP Engineer"],
+  "Networking & Infrastructure": ["Network Engineer", "Systems Administrator"],
+  "Business + Tech": ["Product Manager", "Business Analyst", "Scrum Master"],
+  "Creative & Design": ["UI/UX Designer", "Graphic Designer"],
+  "Career Development": ["Resume Builder", "Interview Prep Specialist"],
+  "Software Engineering": ["Full Stack Developer", "Backend Developer", "DevOps Engineer", "QA Engineer"]
+};
+
+const CERT_MAP = {
+  "Cloud Computing|Cloud Architect": ["AWS Solutions Architect", "Azure Administrator", "Google Cloud Professional"],
+  "Cloud Computing|Cloud Engineer": ["AWS Cloud Practitioner", "Azure Fundamentals", "Google Cloud Professional"],
+  "Cloud Computing|DevOps Engineer": ["AWS DevOps Professional", "Azure DevOps Engineer", "Google Cloud Professional"],
+  "Cybersecurity|Security Analyst": ["CompTIA Security+", "CEH", "CISSP"],
+  "Cybersecurity|Ethical Hacker": ["CEH", "OSCP", "CompTIA PenTest+"],
+  "Cybersecurity|SOC Analyst": ["CompTIA Security+", "CISSP", "CompTIA CySA+"],
+  "Data & Analytics|Data Analyst": ["Google Data Analytics", "Microsoft DP-900", "IBM Data Science"],
+  "Data & Analytics|Data Scientist": ["IBM Data Science", "Google Data Analytics", "Microsoft DP-900"],
+  "Data & Analytics|BI Developer": ["Microsoft PL-300", "Tableau Desktop Specialist", "Google Data Analytics"],
+  "AI & Machine Learning|ML Engineer": ["TensorFlow Developer", "AWS ML Specialty", "Azure AI Engineer"],
+  "AI & Machine Learning|AI Researcher": ["TensorFlow Developer", "Azure AI Engineer", "Google Cloud ML Engineer"],
+  "AI & Machine Learning|NLP Engineer": ["TensorFlow Developer", "Azure AI Engineer", "AWS ML Specialty"],
+  "Networking & Infrastructure|Network Engineer": ["CCNA", "CompTIA Network+", "Juniper JNCIA"],
+  "Networking & Infrastructure|Systems Administrator": ["CompTIA Server+", "MCSA", "Red Hat RHCSA"],
+  "Core IT & Software|Full Stack Developer": ["Meta Frontend Developer", "AWS Cloud Practitioner", "Google UX Design"],
+  "Core IT & Software|Backend Developer": ["AWS Cloud Practitioner", "Meta Backend Developer", "Azure Fundamentals"],
+  "Core IT & Software|Mobile App Developer": ["Google Associate Android Developer", "Meta React Native", "AWS Cloud Practitioner"],
+  "Core IT & Software|DevOps Engineer": ["AWS DevOps Professional", "Azure DevOps Engineer", "Docker Certified Associate"],
+  "Core IT & Software|QA Engineer": ["ISTQB Foundation", "CompTIA A+", "Selenium Certification"],
+  "Software Engineering|Full Stack Developer": ["Meta Frontend Developer", "AWS Cloud Practitioner", "Azure Fundamentals"],
+  "Software Engineering|Backend Developer": ["AWS Cloud Practitioner", "Meta Backend Developer", "Azure Fundamentals"],
+  "Software Engineering|DevOps Engineer": ["AWS DevOps Professional", "Azure DevOps Engineer", "Docker Certified Associate"],
+  "Software Engineering|QA Engineer": ["ISTQB Foundation", "Selenium Certification", "CompTIA A+"],
+  "Business + Tech|Product Manager": ["PMP", "Scrum Master", "CAPM"],
+  "Business + Tech|Business Analyst": ["CBAP", "PMI-PBA", "IIBA ECBA"],
+  "Business + Tech|Scrum Master": ["PSM I", "CSM", "SAFe Scrum Master"],
+  "Creative & Design|UI/UX Designer": ["Google UX Design", "Adobe Certified Professional", "Interaction Design Foundation"],
+  "Creative & Design|Graphic Designer": ["Adobe Certified Professional", "Canva Design Certificate", "Google UX Design"],
+  "Career Development|Resume Builder": ["LinkedIn Learning Certificate", "Google Career Certificate", "Coursera Professional Certificate"],
+  "Career Development|Interview Prep Specialist": ["Google Career Certificate", "LinkedIn Learning Certificate", "HackerRank Certificate"]
+};
+
+function setupDomainDropdown() {
+  const domainSel = document.getElementById('ob-domain');
+  const goalSel = document.getElementById('ob-goal');
+  const certSel = document.getElementById('ob-cert');
+  const btn1 = document.getElementById('btn-ob1');
+  const btn2 = document.getElementById('btn-ob2');
+
+  domainSel.addEventListener('change', () => {
+    btn1.disabled = !domainSel.value;
+  });
+  goalSel.addEventListener('change', () => {
+    btn2.disabled = !goalSel.value;
+    // Update certs
+    if (goalSel.value) {
+      const key = domainSel.value + '|' + goalSel.value;
+      const certs = CERT_MAP[key] || ["General Certification"];
+      certSel.innerHTML = '<option value="">Select a certification</option>';
+      certs.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; certSel.appendChild(o); });
+    }
   });
 }
 
-// ─────────────────────────────────────────────
-// OTP BOX SETUP
-// ─────────────────────────────────────────────
-function setupAllOTPBoxes() {
-  document.querySelectorAll('.otp-inputs').forEach(container => {
-    const boxes = container.querySelectorAll('.otp-box');
-    boxes.forEach((box, i) => {
-      box.addEventListener('input', () => {
-        box.value = box.value.replace(/\D/, '');
-        if (box.value && i < boxes.length - 1) boxes[i + 1].focus();
-      });
-      box.addEventListener('keydown', e => {
-        if (e.key === 'Backspace' && !box.value && i > 0) boxes[i - 1].focus();
-      });
-      box.addEventListener('paste', e => {
-        const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
-        if (paste.length >= 6) {
-          boxes.forEach((b, j) => { b.value = paste[j] || ''; });
-          boxes[Math.min(paste.length - 1, boxes.length - 1)].focus();
-        }
-        e.preventDefault();
-      });
-    });
-  });
-}
-
-function clearOTPBoxes(selector) {
-  document.querySelectorAll(selector).forEach(b => b.value = '');
-}
-
-// ─────────────────────────────────────────────
-// LOGOUT
-// ─────────────────────────────────────────────
-function logout() {
-  // Save user-specific path before logout
-  if (state.user?.email && state.path) {
-    localStorage.setItem('ls_path_' + state.user.email, JSON.stringify(state.path));
-    localStorage.setItem('ls_summary_' + state.user.email, state.skillGapSummary);
-  }
-
-  localStorage.removeItem('ls_token');
-  localStorage.removeItem('ls_user');
-  localStorage.removeItem('ls_path');
-  localStorage.removeItem('ls_summary');
-
-  state.token = null;
-  state.user = null;
-  state.path = null;
-  state.skillGapSummary = '';
-  state.testQuestions = [];
-  state.currentQuestion = 0;
-  state.score = 0;
-  state.answers = [];
-
-  showPage('login');
-  loginGoBack();
-}
-
-// ─────────────────────────────────────────────
-// ONBOARDING
-// ─────────────────────────────────────────────
 function obNext(step) {
   if (step === 1) {
-    const skills = document.getElementById('ob-skills').value.trim();
-    if (!skills) { alert('Please enter your current skills.'); return; }
-    setStep(1, 2);
+    const domain = document.getElementById('ob-domain').value;
+    if (!domain) return;
+    // Populate career goals
+    const goalSel = document.getElementById('ob-goal');
+    const goals = CAREER_MAP[domain] || [];
+    goalSel.innerHTML = '<option value="">Select a career goal</option>';
+    goals.forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; goalSel.appendChild(o); });
+    document.getElementById('btn-ob2').disabled = true;
+    setOnboardStep(2);
   } else if (step === 2) {
-    setStep(2, 3);
+    const goal = document.getElementById('ob-goal').value;
+    if (!goal) return;
+    setOnboardStep(3);
   }
 }
+
 function obBack(step) {
-  if (step === 2) setStep(2, 1);
-  if (step === 3) setStep(3, 2);
+  setOnboardStep(step - 1);
 }
-function setStep(from, to) {
-  document.getElementById('ob-step' + from).classList.add('hidden');
-  document.getElementById('ob-step' + to).classList.remove('hidden');
-  const fromDot = document.getElementById('sdot' + from);
-  const toDot = document.getElementById('sdot' + to);
-  if (to > from) {
-    fromDot.classList.remove('active');
-    fromDot.classList.add('done');
-  }
-  toDot.classList.add('active');
-  toDot.classList.remove('done');
+
+function setOnboardStep(step) {
+  [1, 2, 3].forEach(s => {
+    document.getElementById('ob-step' + s).classList.toggle('hidden', s !== step);
+    const dot = document.getElementById('sdot' + s);
+    dot.classList.remove('active', 'done');
+    if (s < step) dot.classList.add('done');
+    else if (s === step) dot.classList.add('active');
+  });
+  const line1 = document.getElementById('sline1');
+  const line2 = document.getElementById('sline2');
+  if (line1) line1.classList.toggle('done', step > 1);
+  if (line2) line2.classList.toggle('done', step > 2);
 }
 
 async function submitOnboarding() {
-  const skills = document.getElementById('ob-skills').value.trim().split(',').map(s => s.trim()).filter(Boolean);
-  const goal = document.getElementById('ob-goal-custom').value.trim() || document.getElementById('ob-goal').value;
+  const domain = document.getElementById('ob-domain').value;
+  const goal = document.getElementById('ob-goal').value;
   const cert = document.getElementById('ob-cert').value;
-  const level = document.getElementById('ob-level').value;
-
+  const errEl = document.getElementById('ob-error');
   const btn = document.getElementById('btn-ob-finish');
+
+  if (!cert) return showError(errEl, 'Please select a certification.');
+  hideError(errEl);
+
   btn.disabled = true;
-  btn.textContent = '⏳ Analyzing Profile…';
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '⚙️ Generating AI Path...';
 
-  setTimeout(() => {
-    state.user.currentSkills = skills;
-    state.user.learningGoal = goal;
-    state.user.targetCertification = cert;
-    state.user.experienceLevel = level;
-    state.user.onboardingComplete = true;
-
-    // Update registered user data
-    if (state.registeredUsers[state.user.email]) {
-      Object.assign(state.registeredUsers[state.user.email], {
-        onboardingComplete: true,
-        currentSkills: skills,
-        learningGoal: goal,
-        targetCertification: cert,
-        experienceLevel: level
-      });
-    }
-
-    saveState();
-    showPage('app');
-    updateHeaderUser();
-    generatePath();
-
-    btn.disabled = false;
-    btn.textContent = '🚀 Generate My Path';
-  }, 1500);
-}
-
-// ─────────────────────────────────────────────
-// DASHBOARD
-// ─────────────────────────────────────────────
-function loadDashboard() {
-  updateHeaderUser();
-  if (state.path) {
-    updateDashboardUI();
-    showDashboardContent();
-  } else {
-    showNoPaths();
+  try {
+    learningPath = await generateAILearningPath(domain, goal, cert);
+  } catch (e) {
+    console.error("AI Generation failed, falling back to local template.", e);
+    showToast('⚠️ AI generation failed. Using default template.', 'error', 3000);
+    learningPath = generateLearningPathLocal(domain, goal, cert);
   }
+
+  currentUser.domain = domain;
+  currentUser.careerGoal = goal;
+  currentUser.certification = cert;
+  currentUser.onboardingComplete = true;
+  currentUser.completedTopics = [];
+  currentUser.progress = {};
+  currentUser.learningPath = learningPath;
+  
+  localStorage.setItem('ls_user', JSON.stringify(currentUser));
+
+  showToast('🚀 Profile saved! Your learning path is ready.', 'success');
+  
+  btn.disabled = false;
+  btn.innerHTML = originalText;
+  
+  showPage('app');
+  loadDashboard();
 }
 
-function showDashboardContent() {
-  hideSection('no-path-msg');
-  hideSection('loading-path');
-  document.getElementById('hero-banner').style.display = '';
-  document.getElementById('timeline-section').style.display = '';
-  document.getElementById('skill-gap-section').style.display = '';
-}
-
-function showNoPaths() {
-  showSection('no-path-msg');
-  document.getElementById('hero-banner').style.display = 'none';
-  document.getElementById('timeline-section').style.display = 'none';
-  document.getElementById('skill-gap-section').style.display = 'none';
-}
-
-function generatePath() {
-  showSection('loading-path');
-  hideSection('no-path-msg');
-  document.getElementById('hero-banner').style.display = 'none';
-  document.getElementById('timeline-section').style.display = 'none';
-  document.getElementById('skill-gap-section').style.display = 'none';
-
-  setTimeout(() => {
-    const goal = state.user.learningGoal || 'Software Developer';
-    const cert = state.user.targetCertification || 'AWS Cloud Practitioner';
-    const skills = state.user.currentSkills?.join(', ') || 'basic programming';
-
-    state.skillGapSummary = `Based on your goal to become a ${goal}, you have a strong foundation with ${skills}. However, you are missing core advanced concepts required for the ${cert} certification. You need to strengthen your architectural understanding, hands-on deployment skills, and domain-specific expertise to close the gap.`;
-
-    state.path = {
-      goal,
-      certification: cert,
-      readinessScore: 40,
-      totalTopics: 10,
-      completedCount: 0,
-      phases: [
-        {
-          phaseName: 'Phase 1: Core Fundamentals',
-          duration: '1 Week',
-          icon: '📐',
-          topics: [
-            { title: 'Architecture Patterns & Principles', description: 'Master the foundational design patterns required for enterprise applications.', completed: false, resources: [{ label: 'Documentation', url: '#' }] },
-            { title: 'Security Best Practices & IAM', description: 'Implement standard security measures, identity and access management.', completed: false, resources: [{ label: 'Security Guide', url: '#' }] }
-          ]
-        },
-        {
-          phaseName: 'Phase 2: Specialized Skills',
-          duration: '2 Weeks',
-          icon: '🧩',
-          topics: [
-            { title: 'Database Design & Optimization', description: 'Master NoSQL and SQL database optimization techniques.', completed: false, resources: [{ label: 'DB Tutorial', url: '#' }] },
-            { title: 'API Gateway & Microservices', description: 'Design scalable APIs with rate limiting and load balancing.', completed: false, resources: [{ label: 'API Guide', url: '#' }] }
-          ]
-        },
-        {
-          phaseName: 'Phase 3: Advanced Concepts',
-          duration: '2 Weeks',
-          icon: '🚀',
-          topics: [
-            { title: 'Cloud Infrastructure & IaC', description: 'Learn Infrastructure as Code with Terraform and CloudFormation.', completed: false, resources: [{ label: 'IaC Lab', url: '#' }] },
-            { title: 'Monitoring & Observability', description: 'Implement logging, metrics, and alerting systems.', completed: false, resources: [{ label: 'Monitoring Guide', url: '#' }] }
-          ]
-        },
-        {
-          phaseName: 'Phase 4: Deployment & CI/CD',
-          duration: '1 Week',
-          icon: '⚙️',
-          topics: [
-            { title: 'CI/CD Pipeline Setup', description: 'Automate testing and deployment using GitHub Actions or Jenkins.', completed: false, resources: [{ label: 'CI/CD Guide', url: '#' }] },
-            { title: 'Container Orchestration', description: 'Deploy and manage containers with Docker and Kubernetes.', completed: false, resources: [{ label: 'K8s Lab', url: '#' }] }
-          ]
-        },
-        {
-          phaseName: 'Phase 5: Exam Prep',
-          duration: '1 Week',
-          icon: '🎯',
-          topics: [
-            { title: 'Practice Exams & Review', description: 'Complete multiple practice exams and review weak areas.', completed: false, resources: [{ label: 'Mock Exams', url: '#' }] },
-            { title: 'Final Readiness Assessment', description: 'Take a comprehensive assessment to validate exam readiness.', completed: false, resources: [{ label: 'Assessment', url: '#' }] }
-          ]
-        }
-      ]
-    };
-
-    // Save per-user
-    if (state.user?.email) {
-      localStorage.setItem('ls_path_' + state.user.email, JSON.stringify(state.path));
-      localStorage.setItem('ls_summary_' + state.user.email, state.skillGapSummary);
-    }
-
-    saveState();
-    hideSection('loading-path');
-    updateDashboardUI();
-    showDashboardContent();
-  }, 2500);
-}
-
-function regeneratePath() {
-  if (confirm('Regenerate your learning path? Your current progress will be reset.')) {
-    state.path = null;
-    saveState();
-    generatePath();
-  }
-}
-
-function updateDashboardUI() {
-  const p = state.path;
-  if (!p) return;
-
-  // Hero banner
-  const heroGoal = document.getElementById('hero-goal');
-  if (heroGoal) heroGoal.textContent = p.goal || 'Career';
-
-  const heroDesc = document.getElementById('hero-desc');
-  if (heroDesc) heroDesc.textContent = `Based on your skill gap analysis, we've created a roadmap tailored for ${p.goal}. Target: ${p.certification}.`;
-
-  // Readiness meter
-  setReadiness(p.readinessScore);
-  const meterCert = document.getElementById('meter-cert');
-  if (meterCert) meterCert.textContent = p.certification || 'Certification';
-
-  // Stats
-  document.getElementById('stat-completed').textContent = p.completedCount || 0;
-  document.getElementById('stat-remaining').textContent = (p.totalTopics - (p.completedCount || 0));
-  document.getElementById('stat-phases').textContent = p.phases?.length || 0;
-
-  // Estimate total hours
-  let totalHours = 0;
-  p.phases.forEach(phase => {
-    const match = phase.duration?.match(/(\d+)/);
-    const weeks = match ? parseInt(match[1]) : 1;
-    totalHours += weeks * 10;
+// ─── LEARNING PATH GENERATOR (via secure backend) ───
+async function generateAILearningPath(domain, goal, cert) {
+  const res = await fetch('/api/generate-path', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain, goal, certification: cert })
   });
-  document.getElementById('stat-hours').textContent = totalHours + 'h';
 
-  // Skill Gap
-  if (state.skillGapSummary) {
-    document.getElementById('skill-gap-summary').textContent = state.skillGapSummary;
-  }
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
 
-  const tagsEl = document.getElementById('skills-tags');
-  tagsEl.innerHTML = '';
-  if (state.user?.currentSkills?.length) {
-    state.user.currentSkills.forEach(s => {
-      const tag = document.createElement('span');
-      tag.className = 'skill-tag';
-      tag.textContent = s;
-      tagsEl.appendChild(tag);
-    });
-  }
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Unknown error');
+
+  return {
+    goal,
+    certification: cert,
+    phases: data.phases
+  };
+}
+
+function generateLearningPathLocal(domain, goal, cert) {
+  const phaseTemplates = {
+    "Cloud Computing": [
+      { name: "Cloud Foundations", icon: "☁️", hours: 12, topics: ["Cloud Concepts & Models", "Virtualization Basics", "Shared Responsibility Model"] },
+      { name: "Core Services", icon: "⚙️", hours: 15, topics: ["Compute Services (VMs, Containers)", "Storage Solutions", "Networking & VPC"] },
+      { name: "Security & Identity", icon: "🔒", hours: 10, topics: ["IAM & Access Control", "Encryption & Key Management", "Compliance Frameworks"] },
+      { name: "Architecture & Exam Prep", icon: "🏗️", hours: 14, topics: ["High Availability Design", "Cost Optimization", "Practice Exams"] }
+    ],
+    "Cybersecurity": [
+      { name: "Security Fundamentals", icon: "🛡️", hours: 10, topics: ["CIA Triad & Risk Models", "Cryptography Basics", "Network Security"] },
+      { name: "Threats & Vulnerabilities", icon: "⚠️", hours: 12, topics: ["Malware Types", "Social Engineering", "OWASP Top 10"] },
+      { name: "Defense & Monitoring", icon: "📡", hours: 14, topics: ["Firewalls & IDS/IPS", "SIEM Tools", "Incident Response"] },
+      { name: "Compliance & Exam Prep", icon: "📋", hours: 10, topics: ["Regulatory Compliance", "Security Policies", "Practice Exams"] }
+    ],
+    "Data & Analytics": [
+      { name: "Data Foundations", icon: "📊", hours: 10, topics: ["Statistics Basics", "Data Types & Formats", "SQL Fundamentals"] },
+      { name: "Data Processing", icon: "🔄", hours: 12, topics: ["Python for Data", "Pandas & NumPy", "Data Cleaning"] },
+      { name: "Visualization & Analysis", icon: "📈", hours: 12, topics: ["Matplotlib & Seaborn", "Dashboard Design", "Exploratory Data Analysis"] },
+      { name: "Advanced & Exam Prep", icon: "🎯", hours: 14, topics: ["Machine Learning Basics", "Big Data Concepts", "Practice Exams"] }
+    ],
+    "AI & Machine Learning": [
+      { name: "ML Foundations", icon: "🧠", hours: 12, topics: ["Python Fundamentals", "Linear Algebra & Statistics", "Supervised Learning"] },
+      { name: "Deep Learning", icon: "🤖", hours: 15, topics: ["Neural Networks", "CNNs & Image Classification", "RNNs & Sequence Models"] },
+      { name: "Specialized ML", icon: "🔬", hours: 14, topics: ["NLP Fundamentals", "Transfer Learning", "Model Optimization"] },
+      { name: "Deployment & Exam Prep", icon: "🚀", hours: 12, topics: ["MLOps Basics", "Model Serving", "Practice Exams"] }
+    ],
+    "Core IT & Software": [
+      { name: "Programming Basics", icon: "💻", hours: 10, topics: ["HTML & CSS", "JavaScript Fundamentals", "Git & Version Control"] },
+      { name: "Frontend Development", icon: "🎨", hours: 14, topics: ["React Basics", "State Management", "Responsive Design"] },
+      { name: "Backend Development", icon: "⚙️", hours: 14, topics: ["Node.js & Express", "REST APIs", "Databases (SQL & NoSQL)"] },
+      { name: "Full Stack & Exam Prep", icon: "🏗️", hours: 12, topics: ["Authentication & Security", "Deployment", "Practice Projects"] }
+    ],
+    "Networking & Infrastructure": [
+      { name: "Network Basics", icon: "🌐", hours: 10, topics: ["OSI Model", "TCP/IP", "IP Addressing & Subnetting"] },
+      { name: "Routing & Switching", icon: "🔀", hours: 14, topics: ["Router Configuration", "VLANs", "Routing Protocols"] },
+      { name: "Network Services", icon: "📡", hours: 12, topics: ["DNS & DHCP", "NAT & ACLs", "Wireless Networking"] },
+      { name: "Security & Exam Prep", icon: "🔒", hours: 10, topics: ["Network Security", "VPN Configuration", "Practice Exams"] }
+    ]
+  };
+
+  const defaultPhases = [
+    { name: "Fundamentals", icon: "📚", hours: 10, topics: ["Core Concepts", "Terminology & Frameworks", "Tools & Environment Setup"] },
+    { name: "Intermediate Skills", icon: "🔧", hours: 14, topics: ["Hands-on Practice", "Problem Solving", "Case Studies"] },
+    { name: "Advanced Topics", icon: "🚀", hours: 14, topics: ["Specialization", "Best Practices", "Real-world Projects"] },
+    { name: "Exam Preparation", icon: "🎯", hours: 10, topics: ["Review & Summary", "Mock Tests", "Practice Exams"] }
+  ];
+
+  const phases = phaseTemplates[domain] || defaultPhases;
+  return {
+    goal,
+    certification: cert,
+    phases: phases.map((p, i) => ({
+      ...p,
+      phaseNum: i + 1,
+      status: 'not-started',
+      topicStatus: p.topics.map(() => ({ completed: false, quizPassed: false }))
+    }))
+  };
+}
+
+// ─── DASHBOARD ───
+function loadDashboard() {
+  if (!currentUser) return;
+  // Load saved path
+  if (!learningPath && currentUser.learningPath) learningPath = currentUser.learningPath;
+  if (!learningPath) return;
+
+  // Header
+  document.getElementById('header-avatar').textContent = currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U';
+  document.getElementById('header-user-name').textContent = currentUser.name || 'User';
+
+  // Hero
+  document.getElementById('hero-goal').textContent = currentUser.careerGoal || 'Career';
+  document.getElementById('hero-desc').textContent = `Based on your skill gap analysis, we've built a roadmap tailored for ${currentUser.certification}.`;
+  document.getElementById('meter-cert').textContent = currentUser.certification || 'Certification';
+
+  // Cert logos
+  const logosEl = document.getElementById('hero-cert-logos');
+  const logoMap = {
+    "Cloud Computing": ["☁️ AWS", "🔷 Azure", "🌐 GCP"],
+    "Cybersecurity": ["🛡️ CompTIA", "🔐 CEH", "🔒 CISSP"],
+    "Data & Analytics": ["📊 Google", "🔷 Microsoft", "📈 IBM"],
+    "AI & Machine Learning": ["🧠 TensorFlow", "☁️ AWS", "🔷 Azure"],
+    "Networking & Infrastructure": ["🌐 Cisco", "📡 CompTIA", "🔌 Juniper"],
+    "Core IT & Software": ["⚡ Meta", "☁️ AWS", "🎨 Google"]
+  };
+  const logos = logoMap[currentUser.domain] || ["🎓 Learn", "📚 Study", "🏆 Certify"];
+  logosEl.innerHTML = logos.map(l => `<span class="cert-logo">${l}</span>`).join('');
+
+  // Progress
+  updateProgress();
 
   // Timeline cards
-  renderTimelineCards();
+  renderTimeline();
+
+  // Roadmap
+  renderRoadmap();
 }
 
-function setReadiness(pct) {
-  const circle = document.getElementById('meter-fill');
-  if (!circle) return;
-  const circumference = 2 * Math.PI * 68; // r=68
-  const offset = circumference - (pct / 100) * circumference;
-  circle.style.strokeDashoffset = offset;
-  document.getElementById('meter-pct').textContent = pct + '%';
+function updateProgress() {
+  if (!learningPath) return;
+  let total = 0, completed = 0, totalHours = 0;
+  learningPath.phases.forEach(p => {
+    totalHours += p.hours;
+    p.topics.forEach((_, ti) => {
+      total++;
+      if (p.topicStatus[ti].quizPassed) completed++;
+    });
+  });
+
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  // Animate meter
+  const meterFill = document.getElementById('meter-fill');
+  const meterPct = document.getElementById('meter-pct');
+  const circumference = 427;
+  const offset = circumference - (circumference * pct / 100);
+  setTimeout(() => { meterFill.style.strokeDashoffset = offset; }, 100);
+  animateCounter(meterPct, pct);
+
+  // Stats
+  document.getElementById('stat-completed').textContent = completed;
+  document.getElementById('stat-remaining').textContent = total - completed;
+  document.getElementById('stat-phases').textContent = learningPath.phases.length;
+  document.getElementById('stat-hours').textContent = totalHours + 'h';
 }
 
-function renderTimelineCards() {
+function animateCounter(el, target) {
+  let current = 0;
+  const step = Math.max(1, Math.floor(target / 30));
+  const interval = setInterval(() => {
+    current += step;
+    if (current >= target) { current = target; clearInterval(interval); }
+    el.textContent = current + '%';
+  }, 30);
+}
+
+function renderTimeline() {
   const container = document.getElementById('timeline-cards');
-  if (!container || !state.path) return;
+  if (!learningPath) { container.innerHTML = ''; return; }
 
-  const icons = ['📐', '🧩', '🚀', '⚙️', '🎯'];
-  container.innerHTML = state.path.phases.map((phase, i) => {
-    const completedTopics = phase.topics.filter(t => t.completed).length;
-    const totalTopics = phase.topics.length;
-    const isCompleted = completedTopics === totalTopics;
-    const inProgress = completedTopics > 0 && !isCompleted;
-    const statusClass = isCompleted ? 'completed' : inProgress ? 'in-progress' : 'not-started';
-    const statusLabel = isCompleted ? 'Completed' : inProgress ? 'In Progress' : 'Not Started';
+  container.innerHTML = learningPath.phases.map((p, pi) => {
+    // Determine status
+    let status = 'not-started';
+    const completedCount = p.topicStatus.filter(t => t.quizPassed).length;
+    if (completedCount === p.topics.length) status = 'completed';
+    else if (completedCount > 0) status = 'in-progress';
+
+    const statusLabels = { 'not-started': 'Not Started', 'in-progress': 'In Progress', 'completed': 'Completed' };
 
     return `
-      <div class="timeline-card ${isCompleted ? 'completed' : ''}">
-        <div class="tc-icon">${phase.icon || icons[i] || '📚'}</div>
-        <div class="tc-phase">Phase ${i + 1}</div>
-        <div class="tc-title">${escHtml(phase.phaseName.replace(/Phase \d+:\s*/, ''))}</div>
-        <div class="tc-meta">
-          <span class="tc-time">⏱ ${escHtml(phase.duration || 'TBD')}</span>
-          <span class="tc-status ${statusClass}">${statusLabel}</span>
+      <div class="phase-card" onclick="openPhaseModal(${pi})">
+        <span class="phase-icon">${p.icon}</span>
+        <span class="phase-num">Phase ${p.phaseNum}</span>
+        <div class="phase-name">${p.name}</div>
+        <div class="phase-time">⏱️ ${p.hours} hours • ${p.topics.length} topics</div>
+        <span class="phase-status ${status}">${statusLabels[status]}</span>
+        <button class="btn btn-primary btn-sm" style="margin-top:12px;" onclick="event.stopPropagation(); openPhaseModal(${pi})">Start Learning</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderRoadmap() {
+  const container = document.getElementById('roadmap-container');
+  const empty = document.getElementById('roadmap-empty');
+  const label = document.getElementById('roadmap-goal-label');
+
+  if (!learningPath) { container.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  label.textContent = `${currentUser.careerGoal} → ${currentUser.certification}`;
+
+  container.innerHTML = learningPath.phases.map((p, pi) => {
+    const completedCount = p.topicStatus.filter(t => t.quizPassed).length;
+    let nodeClass = '';
+    if (completedCount === p.topics.length) nodeClass = 'done';
+    else if (completedCount > 0) nodeClass = 'active';
+
+    return `
+      <div class="roadmap-node ${nodeClass}">
+        <div class="roadmap-card">
+          <h3>${p.icon} Phase ${p.phaseNum}: ${p.name}</h3>
+          <div class="rm-duration">⏱️ ${p.hours} hours estimated</div>
+          <div class="roadmap-topics">
+            ${p.topics.map((t, ti) => `<span class="rm-topic ${p.topicStatus[ti].quizPassed ? 'done' : ''}">${t}</span>`).join('')}
+          </div>
         </div>
       </div>
     `;
   }).join('');
 }
 
-function updateHeaderUser() {
-  if (!state.user) return;
-  const name = state.user.name || state.user.email?.split('@')[0] || 'User';
-  document.getElementById('header-user-name').textContent = name;
-  document.getElementById('header-avatar').textContent = name.charAt(0).toUpperCase();
-}
+// ─── PHASE LEARNING MODAL ───
+function openPhaseModal(phaseIdx) {
+  const phase = learningPath.phases[phaseIdx];
+  const modal = document.getElementById('phase-modal');
+  const body = document.getElementById('phase-modal-body');
 
-// ─────────────────────────────────────────────
-// ROADMAP
-// ─────────────────────────────────────────────
-function renderRoadmap() {
-  const container = document.getElementById('roadmap-container');
-  const empty = document.getElementById('roadmap-empty');
-  if (!state.path) { container.innerHTML = ''; empty.classList.remove('hidden'); return; }
-  empty.classList.add('hidden');
-
-  document.getElementById('roadmap-goal-label').textContent =
-    `Goal: ${state.path.goal || '–'} · ${state.path.certification || '–'}`;
-
-  container.innerHTML = state.path.phases.map((phase, pi) => `
-    <div class="phase-block">
-      <div class="phase-dot">${pi + 1}</div>
-      <div class="phase-header">
-        <div class="phase-name">${escHtml(phase.phaseName)}</div>
-        <div class="phase-duration">⏱ ${escHtml(phase.duration || '')}</div>
-      </div>
-      <div class="topic-list">
-        ${phase.topics.map((topic, ti) => `
-          <div class="topic-card ${topic.completed ? 'completed' : ''}" id="tc-${pi}-${ti}">
-            <div class="topic-header">
-              <div>
-                <div class="topic-title">${topic.completed ? '✅ ' : ''}${escHtml(topic.title)}</div>
-                <div class="topic-desc">${escHtml(topic.description || '')}</div>
-              </div>
-              ${!topic.completed
-    ? `<button class="btn-complete" onclick="markComplete(${pi},${ti})">Mark Done</button>`
-    : `<span class="btn-complete done">✓ Done</span>`}
-            </div>
-            ${topic.resources?.length ? `
-              <div class="topic-resources">
-                ${topic.resources.map(r => `<a class="res-link" href="${escHtml(r.url)}" target="_blank" rel="noopener">📎 ${escHtml(r.label)}</a>`).join('')}
-              </div>
-            ` : ''}
-          </div>
-        `).join('')}
-      </div>
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2>${phase.icon} Phase ${phase.phaseNum}: ${phase.name}</h2>
+      <button onclick="closePhaseModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text-muted);">✕</button>
     </div>
-  `).join('');
-}
-
-function markComplete(phaseIndex, topicIndex) {
-  const p = state.path;
-  p.phases[phaseIndex].topics[topicIndex].completed = true;
-
-  let completedCount = 0;
-  p.phases.forEach(phase => phase.topics.forEach(t => { if (t.completed) completedCount++; }));
-  p.completedCount = completedCount;
-
-  const newReadiness = Math.min(100, Math.round((completedCount / p.totalTopics) * 100));
-  const initialScore = 40;
-  p.readinessScore = Math.min(100, Math.round(initialScore + (100 - initialScore) * (completedCount / p.totalTopics)));
-
-  // Save per-user
-  if (state.user?.email) {
-    localStorage.setItem('ls_path_' + state.user.email, JSON.stringify(state.path));
-  }
-
-  saveState();
-  renderRoadmap();
-  updateDashboardUI();
-}
-
-// ─────────────────────────────────────────────
-// MOCK TEST
-// ─────────────────────────────────────────────
-function startMockTest() {
-  if (!state.path) { alert('Generate a learning path first!'); return; }
-  document.getElementById('test-start').classList.add('hidden');
-  document.getElementById('test-loading').classList.remove('hidden');
-
-  setTimeout(() => {
-    const goal = state.user?.learningGoal || 'Software Development';
-    const cert = state.user?.targetCertification || 'Certification';
-
-    state.testQuestions = [
-      {
-        question: `Which of the following describes the key benefit of leveraging a CI/CD pipeline for your ${goal} projects?`,
-        options: ["It reduces the need for manual code review.", "It automates the testing and deployment workflow.", "It replaces the need for local debugging.", "It prevents all runtime exceptions."],
-        answer: "B",
-        explanation: "CI/CD automates the processes of testing and deploying, allowing teams to deliver code changes more frequently and reliably."
-      },
-      {
-        question: "For a highly available architecture, how should resources be distributed?",
-        options: ["In a single availability zone.", "Across multiple availability zones.", "Only on local physical servers.", "In a single highly resilient server."],
-        answer: "B",
-        explanation: "Distributing resources across multiple Availability Zones protects against the failure of a single location."
-      },
-      {
-        question: "When prioritizing security, which principle ensures users have only the permissions they need?",
-        options: ["Principle of Maximum Privilege", "Role-Based Overload", "Principle of Least Privilege", "Symmetric Encryption"],
-        answer: "C",
-        explanation: "The Principle of Least Privilege dictates that users and applications should only be given the permissions strictly required to perform their tasks."
-      },
-      {
-        question: `Which service is most relevant for optimizing database reads for your ${cert} preparation?`,
-        options: ["A caching layer (e.g., Redis or Memcached)", "A larger hard drive", "A content delivery network (CDN)", "Long-term cold storage"],
-        answer: "A",
-        explanation: "Caching layers temporarily store frequently accessed data in memory, significantly speeding up database read operations."
-      },
-      {
-        question: "In standard API design, what HTTP method is conventionally used to update an existing resource fully?",
-        options: ["GET", "POST", "PUT", "DELETE"],
-        answer: "C",
-        explanation: "PUT is standardly used for updating a resource entirely, whereas PATCH is used for partial updates."
-      }
-    ];
-    state.currentQuestion = 0;
-    state.score = 0;
-    state.answers = [];
-    document.getElementById('test-loading').classList.add('hidden');
-    document.getElementById('test-area').classList.remove('hidden');
-    renderQuestion();
-  }, 1500);
-}
-
-function renderQuestion() {
-  const q = state.testQuestions[state.currentQuestion];
-  if (!q) return;
-
-  const total = state.testQuestions.length;
-  const pct = (state.currentQuestion / total) * 100;
-  document.getElementById('test-prog-fill').style.width = pct + '%';
-
-  document.getElementById('question-container').innerHTML = `
-    <div class="question-card">
-      <div class="q-number">Question ${state.currentQuestion + 1} of ${total}</div>
-      <div class="q-text">${escHtml(q.question)}</div>
-      <div class="options-list">
-        ${q.options.map((opt, i) => `
-          <button class="option-btn" id="opt-${i}" onclick="selectAnswer(${i}, '${escHtml(q.answer)}', ${JSON.stringify(q.explanation).replace(/"/g, '&quot;')})">
-            ${escHtml(opt)}
-          </button>
-        `).join('')}
-      </div>
-      <div id="explanation-box" class="hidden"></div>
+    <div id="phase-topics-list">
+      ${phase.topics.map((topic, ti) => {
+        const done = phase.topicStatus[ti].quizPassed;
+        return `
+          <div style="padding:16px;border:2px solid ${done ? 'var(--accent)' : 'var(--border)'};border-radius:var(--radius-md);margin-bottom:12px;background:${done ? 'var(--accent-light)' : 'var(--white)'};">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <strong>${done ? '✅' : '📘'} ${topic}</strong>
+                <div style="font-size:0.82rem;color:var(--text-muted);margin-top:4px;">${done ? 'Completed' : 'Not started'}</div>
+              </div>
+              ${done ? '<span class="phase-status completed">Passed</span>' : `<button class="btn btn-primary btn-sm" onclick="startTopicQuiz(${phaseIdx}, ${ti})" style="width:auto;">Start Quiz</button>`}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+    <div style="margin-top:16px;padding:16px;background:var(--bg);border-radius:var(--radius-md);">
+      <strong>📊 Phase Progress:</strong> ${phase.topicStatus.filter(t => t.quizPassed).length} / ${phase.topics.length} topics completed
     </div>
   `;
-  document.getElementById('btn-next-q').style.display = 'none';
+
+  modal.classList.remove('hidden');
 }
 
-function selectAnswer(selectedIdx, correctLetter, explanation) {
-  const q = state.testQuestions[state.currentQuestion];
-  const correctIdx = ['A', 'B', 'C', 'D'].indexOf(correctLetter.toUpperCase());
-  const isCorrect = selectedIdx === correctIdx;
+function closePhaseModal() {
+  document.getElementById('phase-modal').classList.add('hidden');
+}
 
-  if (isCorrect) state.score++;
-  state.answers.push({ question: q.question, selected: selectedIdx, correct: correctIdx, isCorrect });
+// ─── TOPIC QUIZ ───
+let currentQuiz = { phaseIdx: 0, topicIdx: 0, questions: [], current: 0, answers: [] };
 
-  document.querySelectorAll('.option-btn').forEach((btn, i) => {
-    btn.disabled = true;
-    if (i === correctIdx) btn.classList.add('correct');
-    else if (i === selectedIdx && !isCorrect) btn.classList.add('wrong');
+function startTopicQuiz(phaseIdx, topicIdx) {
+  closePhaseModal();
+  showTab('mocktest');
+
+  const topic = learningPath.phases[phaseIdx].topics[topicIdx];
+  let questions = QUIZ_DATA[topic] || QUIZ_DATA["Default"];
+  questions = [...questions].sort(() => Math.random() - 0.5).slice(0, 10);
+
+  currentQuiz = { phaseIdx, topicIdx, questions, current: 0, answers: new Array(questions.length).fill(-1), topicName: topic };
+
+  document.getElementById('test-start').classList.add('hidden');
+  document.getElementById('test-results').classList.add('hidden');
+  const area = document.getElementById('test-area');
+  area.classList.remove('hidden');
+
+  renderQuizQuestion();
+}
+
+function startMockTest() {
+  if (!learningPath) { showToast('⚠️ Please complete onboarding first.', 'error'); return; }
+  const cert = currentUser.certification;
+  const questions = getQuizForCert(cert);
+
+  currentQuiz = { phaseIdx: -1, topicIdx: -1, questions, current: 0, answers: new Array(questions.length).fill(-1), topicName: cert };
+
+  document.getElementById('test-start').classList.add('hidden');
+  document.getElementById('test-results').classList.add('hidden');
+  const area = document.getElementById('test-area');
+  area.classList.remove('hidden');
+
+  renderQuizQuestion();
+}
+
+function renderQuizQuestion() {
+  const area = document.getElementById('test-area');
+  const q = currentQuiz.questions[currentQuiz.current];
+  const total = currentQuiz.questions.length;
+  const num = currentQuiz.current + 1;
+
+  area.innerHTML = `
+    <div class="quiz-progress">
+      <div class="quiz-progress-text">Question ${num} of ${total}</div>
+      <div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${(num / total) * 100}%"></div></div>
+    </div>
+    <div class="question-card">
+      <div class="q-number">Question ${num}</div>
+      <div class="q-text">${q.q}</div>
+      <div class="q-options">
+        ${q.o.map((opt, oi) => `<div class="q-option" onclick="selectAnswer(${oi})" id="qopt-${oi}">${opt}</div>`).join('')}
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:16px;">
+      <button class="btn btn-primary btn-sm" id="btn-next-q" onclick="nextQuestion()" style="width:auto;display:none;">
+        ${num < total ? 'Next Question →' : 'Submit Answers'}
+      </button>
+    </div>
+  `;
+}
+
+function selectAnswer(idx) {
+  currentQuiz.answers[currentQuiz.current] = idx;
+  document.querySelectorAll('.q-option').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
   });
-
-  const expBox = document.getElementById('explanation-box');
-  expBox.classList.remove('hidden');
-  expBox.innerHTML = `<div class="explanation">💡 ${escHtml(explanation || 'No explanation provided.')}</div>`;
-
-  const nextBtn = document.getElementById('btn-next-q');
-  nextBtn.style.display = 'flex';
-  nextBtn.textContent = state.currentQuestion < state.testQuestions.length - 1
-    ? 'Next Question →' : '🏁 See Results';
+  document.getElementById('btn-next-q').style.display = 'inline-flex';
 }
 
 function nextQuestion() {
-  state.currentQuestion++;
-  if (state.currentQuestion < state.testQuestions.length) {
-    renderQuestion();
+  if (currentQuiz.answers[currentQuiz.current] === -1) return;
+
+  if (currentQuiz.current < currentQuiz.questions.length - 1) {
+    currentQuiz.current++;
+    renderQuizQuestion();
   } else {
-    showResults();
+    showQuizResults();
   }
 }
 
-function showResults() {
+function showQuizResults() {
+  let correct = 0;
+  currentQuiz.questions.forEach((q, i) => {
+    if (currentQuiz.answers[i] === q.a) correct++;
+  });
+
+  const total = currentQuiz.questions.length;
+  const passed = correct >= 8;
+
+  // Update progress if topic quiz
+  if (currentQuiz.phaseIdx >= 0 && passed) {
+    learningPath.phases[currentQuiz.phaseIdx].topicStatus[currentQuiz.topicIdx].quizPassed = true;
+    currentUser.learningPath = learningPath;
+    localStorage.setItem('ls_user', JSON.stringify(currentUser));
+    updateProgress();
+    renderTimeline();
+    renderRoadmap();
+  }
+
   document.getElementById('test-area').classList.add('hidden');
-  document.getElementById('test-results').classList.remove('hidden');
+  const results = document.getElementById('test-results');
+  results.classList.remove('hidden');
 
-  const total = state.testQuestions.length;
-  const pct = Math.round((state.score / total) * 100);
-  const icon = pct >= 80 ? '🏆' : pct >= 60 ? '🎉' : pct >= 40 ? '💪' : '📚';
+  results.innerHTML = `
+    <div class="result-card">
+      <div class="result-icon">${passed ? '🎉' : '😅'}</div>
+      <h3>${passed ? 'Congratulations! You Passed!' : 'Not Quite There Yet'}</h3>
+      <div class="result-score">${correct}/${total}</div>
+      <p style="color:var(--text-secondary);margin-bottom:20px;">
+        ${passed ? 'Great job! You\'ve mastered this topic.' : 'You need 8/10 to pass. Review the material and try again.'}
+      </p>
+      <div id="result-review" style="text-align:left;margin-bottom:24px;">
+        ${currentQuiz.questions.map((q, i) => {
+          const isCorrect = currentQuiz.answers[i] === q.a;
+          return `
+            <div class="review-item">
+              <div class="review-q">${i + 1}. ${q.q}</div>
+              <div class="review-a ${isCorrect ? 'correct' : 'wrong'}">
+                Your answer: ${q.o[currentQuiz.answers[i]] || 'None'} ${isCorrect ? '✅' : `❌ (Correct: ${q.o[q.a]})`}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center;">
+        ${!passed && currentQuiz.phaseIdx >= 0 ? `<button class="btn btn-primary btn-sm" onclick="startTopicQuiz(${currentQuiz.phaseIdx}, ${currentQuiz.topicIdx})" style="width:auto;">🔄 Retry Quiz</button>` : ''}
+        <button class="btn btn-outline btn-sm" onclick="resetTest()" style="width:auto;">Back to Dashboard</button>
+      </div>
+    </div>
+  `;
+}
 
-  document.getElementById('result-icon').textContent = icon;
-  document.getElementById('result-title').textContent = pct >= 80 ? 'Excellent Work!' : pct >= 60 ? 'Good Job!' : 'Keep Practicing!';
-  document.getElementById('result-score-label').textContent = `${state.score} / ${total} (${pct}%)`;
-  document.getElementById('test-prog-fill').style.width = '100%';
+function resetTest() {
+  document.getElementById('test-area').classList.add('hidden');
+  document.getElementById('test-results').classList.add('hidden');
+  document.getElementById('test-start').classList.remove('hidden');
+  showTab('dashboard');
+}
 
-  const reviewEl = document.getElementById('result-review');
-  reviewEl.innerHTML = state.answers.map((a, i) => `
-    <div class="review-item ${a.isCorrect ? 'correct-r' : 'wrong-r'}">
-      <span>${a.isCorrect ? '✅' : '❌'}</span>
-      <span>Q${i + 1}: ${escHtml(state.testQuestions[i]?.question || '')}</span>
+// ─── DOMAIN EXPLORER ───
+function renderDomainGrid() {
+  if (typeof DOMAIN_DATA === 'undefined') return;
+  const grid = document.getElementById('domain-grid');
+  if (!grid) return;
+
+  grid.innerHTML = DOMAIN_DATA.map((d, i) => `
+    <div class="domain-card" onclick="openDomain(${i})">
+      <span class="d-icon">${d.icon}</span>
+      <div class="d-title">${d.title}</div>
+      <div class="d-desc">${d.description}</div>
     </div>
   `).join('');
 }
 
-function resetTest() {
-  document.getElementById('test-results').classList.add('hidden');
-  document.getElementById('test-area').classList.add('hidden');
-  document.getElementById('test-start').classList.remove('hidden');
-  state.testQuestions = [];
-  state.currentQuestion = 0;
-  state.score = 0;
-  state.answers = [];
-  document.getElementById('test-prog-fill').style.width = '0%';
+function openDomain(idx) {
+  const domain = DOMAIN_DATA[idx];
+  showTab('subdomains');
+
+  document.getElementById('subdomain-breadcrumbs').innerHTML = `<a href="#" onclick="showTab('domains'); return false;">Home</a> &gt; ${domain.title}`;
+  document.getElementById('subdomain-title').textContent = domain.icon + ' ' + domain.title;
+  document.getElementById('subdomain-desc').textContent = domain.description;
+
+  const grid = document.getElementById('subdomain-grid');
+  grid.innerHTML = domain.subDomains.map((sd, si) => `
+    <div class="subdomain-card" onclick="openSubDomain(${idx}, ${si})">
+      <div>
+        <div class="sd-title">${sd.title}</div>
+        <div class="sd-desc">${sd.description}</div>
+      </div>
+      <span class="sd-arrow">→</span>
+    </div>
+  `).join('');
 }
 
-// ─────────────────────────────────────────────
-// UTILITIES
-// ─────────────────────────────────────────────
-function showSection(id) { document.getElementById(id)?.classList.remove('hidden'); }
-function hideSection(id) { document.getElementById(id)?.classList.add('hidden'); }
-function showError(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
-function escHtml(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function openSubDomain(dIdx, sdIdx) {
+  const domain = DOMAIN_DATA[dIdx];
+  const sd = domain.subDomains[sdIdx];
+  showTab('domain-detail');
+
+  document.getElementById('detail-breadcrumbs').innerHTML =
+    `<a href="#" onclick="showTab('domains'); return false;">Home</a> &gt; <a href="#" onclick="openDomain(${dIdx}); return false;">${domain.title}</a> &gt; ${sd.title}`;
+
+  const content = document.getElementById('detail-content');
+  content.innerHTML = `
+    <div class="detail-section">
+      <h2>📖 Introduction</h2>
+      <p>${sd.intro}</p>
+      <p style="margin-top:10px;"><strong>Why it matters:</strong> ${sd.importance}</p>
+    </div>
+    <div class="detail-section">
+      <h2>🛠️ Skills Covered</h2>
+      <div class="badge-wrap">${sd.skills.map(s => `<span class="badge">${s}</span>`).join('')}</div>
+    </div>
+    <div class="detail-section">
+      <h2>🗺️ Learning Path</h2>
+      <div class="path-timeline">
+        ${sd.path.map(p => `<div class="path-step"><div class="step-level">${p.level}</div><div class="step-text">${p.steps}</div></div>`).join('')}
+      </div>
+    </div>
+    <div class="detail-section">
+      <h2>🚀 How to Start</h2>
+      <p>${sd.howToLearn}</p>
+    </div>
+    <div class="detail-section">
+      <h2>🆓 Free Resources</h2>
+      <div class="resource-cards">
+        ${sd.freePlatforms.map(p => `<div class="resource-card"><a href="#" onclick="return false;">📚 ${p}</a></div>`).join('')}
+      </div>
+    </div>
+    <div class="detail-section">
+      <h2>💼 Career Opportunities</h2>
+      <div class="career-list">${sd.careers.map(c => `<div class="career-item">${c}</div>`).join('')}</div>
+    </div>
+    <div class="detail-section">
+      <h2>🔧 Tools & Technologies</h2>
+      <div class="tool-grid">${sd.tools.map(t => `<div class="tool-item">${t}</div>`).join('')}</div>
+    </div>
+  `;
+}
+
+// ─── RESTART ───
+function logout() {
+  localStorage.removeItem('ls_user');
+  currentUser = { name: 'Learner', onboardingComplete: false, progress: {}, completedTopics: [] };
+  learningPath = null;
+  // Reset onboarding form
+  document.getElementById('ob-domain').value = '';
+  document.getElementById('ob-goal').value = '';
+  document.getElementById('ob-cert').value = '';
+  setOnboardStep(1);
+  showPage('onboarding');
+  showToast('👋 Restarted learning journey.', 'success');
+}
+
+// ─── HELPERS ───
+function showError(el, msg) {
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+function hideError(el) {
+  el.textContent = '';
+  el.classList.add('hidden');
+}
+
+// Close modal on backdrop click
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'phase-modal') closePhaseModal();
+});
+
+// ═══════════════════════════════════════════════════════════════
+//   SHARED CHAT ENGINE — LSphere AI + LS Mini (Unified System)
+// ═══════════════════════════════════════════════════════════════
+
+let chatThreads = [];       // Array of { id, title, messages: [{role,content,time}] }
+let activeThreadId = null;
+let isAILoading = false;
+
+// ─── PERSISTENCE ───
+function loadChatThreads() {
+  const saved = localStorage.getItem('ls_chat_threads');
+  if (saved) chatThreads = JSON.parse(saved);
+  if (!chatThreads.length) newConversation();
+  else activeThreadId = chatThreads[0].id;
+}
+function saveChatThreads() {
+  localStorage.setItem('ls_chat_threads', JSON.stringify(chatThreads));
+}
+
+function getActiveThread() {
+  return chatThreads.find(t => t.id === activeThreadId);
+}
+
+// ─── THREAD MANAGEMENT ───
+function newConversation() {
+  const thread = {
+    id: 'thread_' + Date.now(),
+    title: 'New Chat',
+    messages: []
+  };
+  chatThreads.unshift(thread);
+  activeThreadId = thread.id;
+  saveChatThreads();
+  renderThreadList();
+  renderChatMessages();
+  renderMiniChat();
+}
+
+function switchThread(id) {
+  activeThreadId = id;
+  renderThreadList();
+  renderChatMessages();
+  renderMiniChat();
+}
+
+function deleteThread(id, e) {
+  if (e) e.stopPropagation();
+  chatThreads = chatThreads.filter(t => t.id !== id);
+  if (activeThreadId === id) {
+    if (chatThreads.length === 0) newConversation();
+    else activeThreadId = chatThreads[0].id;
+  }
+  saveChatThreads();
+  renderThreadList();
+  renderChatMessages();
+  renderMiniChat();
+}
+
+// ─── RENDER SIDEBAR THREADS ───
+function renderThreadList() {
+  const container = document.getElementById('ls-thread-list');
+  if (!container) return;
+  container.innerHTML = chatThreads.map(t => `
+    <div class="ls-thread-item ${t.id === activeThreadId ? 'active' : ''}" onclick="switchThread('${t.id}')">
+      <span class="ls-thread-icon">💬</span>
+      <span class="ls-thread-text">${escHtml(t.title)}</span>
+      <button class="ls-thread-delete" onclick="deleteThread('${t.id}', event)" title="Delete">🗑</button>
+    </div>
+  `).join('');
+}
+
+// ─── RENDER LSPHERE AI MESSAGES ───
+function renderChatMessages() {
+  const container = document.getElementById('ls-messages');
+  if (!container) return;
+  const thread = getActiveThread();
+  if (!thread || thread.messages.length === 0) {
+    container.innerHTML = `
+      <div class="ls-welcome">
+        <div class="ls-welcome-icon">🧠</div>
+        <h2>Welcome to LSphere AI</h2>
+        <p>Ask me anything about your certifications, career path, or learning goals. I can also navigate you to the right domain automatically!</p>
+        <div class="ls-suggestions">
+          <button class="ls-suggest-btn" onclick="sendLSphereMessage('Teach me Cloud Computing')">☁️ Teach me Cloud Computing</button>
+          <button class="ls-suggest-btn" onclick="sendLSphereMessage('How to prepare for AWS Solutions Architect?')">📜 AWS Exam Prep</button>
+          <button class="ls-suggest-btn" onclick="sendLSphereMessage('Explain cybersecurity basics')">🔒 Cybersecurity Basics</button>
+          <button class="ls-suggest-btn" onclick="sendLSphereMessage('What skills do I need for data science?')">📊 Data Science Skills</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  container.innerHTML = thread.messages.map(m => `
+    <div class="ls-msg ${m.role}">
+      <div class="ls-msg-bubble">${m.content}</div>
+      <div class="ls-msg-time">${m.time || ''}</div>
+    </div>
+  `).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+// ─── RENDER LS MINI MESSAGES ───
+function renderMiniChat() {
+  const body = document.getElementById('mini-chat-body');
+  if (!body) return;
+  const thread = getActiveThread();
+  if (!thread || thread.messages.length === 0) {
+    body.innerHTML = `<div class="chat-message ai"><div class="msg-content">👋 Hi! I'm LS Mini. Ask me anything or open LSphere AI for the full experience!</div></div>`;
+    return;
+  }
+  // Show last 20 messages
+  const msgs = thread.messages.slice(-20);
+  body.innerHTML = msgs.map(m => `
+    <div class="chat-message ${m.role}">
+      <div class="msg-content">${m.content}</div>
+    </div>
+  `).join('');
+  body.scrollTop = body.scrollHeight;
+}
+
+// ─── TOGGLE LS MINI ───
+function toggleMiniChat() {
+  const win = document.getElementById('chat-window');
+  win.classList.toggle('hidden');
+  if (!win.classList.contains('hidden')) {
+    renderMiniChat();
+    document.getElementById('mini-chat-input').focus();
+  }
+}
+
+// ─── SEND MESSAGE (Shared Core) ───
+async function sendSharedMessage(text, source) {
+  if (isAILoading) return;
+  const msg = (text || '').trim();
+  if (!msg) return;
+
+  const thread = getActiveThread();
+  if (!thread) return;
+
+  const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+  // Add user message
+  thread.messages.push({ role: 'user', content: escHtml(msg), time: now });
+
+  // Update title from first message
+  if (thread.messages.filter(m => m.role === 'user').length === 1) {
+    thread.title = msg.length > 35 ? msg.substring(0, 35) + '...' : msg;
+  }
+
+  saveChatThreads();
+  renderChatMessages();
+  renderMiniChat();
+  renderThreadList();
+
+  // Clear inputs
+  const lsInput = document.getElementById('ls-input');
+  const miniInput = document.getElementById('mini-chat-input');
+  if (lsInput) lsInput.value = '';
+  if (miniInput) miniInput.value = '';
+
+  // Show typing indicator
+  isAILoading = true;
+  showTypingIndicator(source);
+
+  try {
+    // Build messages array for backend
+    const apiMessages = thread.messages.map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content
+    }));
+
+    const context = currentUser?.certification || '';
+
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: apiMessages, context })
+    });
+
+    hideTypingIndicator(source);
+
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Unknown error');
+
+    const reply = data.reply || "I couldn't generate a response.";
+    const replyTime = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+    thread.messages.push({ role: 'ai', content: reply, time: replyTime });
+    saveChatThreads();
+    renderChatMessages();
+    renderMiniChat();
+
+    // Smart Redirection
+    if (data.redirectDomain) {
+      handleSmartRedirect(data.redirectDomain, source);
+    }
+
+  } catch (err) {
+    hideTypingIndicator(source);
+    console.error('Chat Error:', err);
+    const errorReply = '⚠️ Could not reach the AI server. Make sure `python app.py` is running.';
+    thread.messages.push({ role: 'ai', content: errorReply, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) });
+    saveChatThreads();
+    renderChatMessages();
+    renderMiniChat();
+  } finally {
+    isAILoading = false;
+  }
+}
+
+// ─── TYPING INDICATORS ───
+function showTypingIndicator(source) {
+  if (source === 'lsphere') {
+    const container = document.getElementById('ls-messages');
+    if (container) {
+      container.insertAdjacentHTML('beforeend', `
+        <div class="ls-typing" id="ls-typing-indicator">
+          <div class="ls-typing-dot"></div><div class="ls-typing-dot"></div><div class="ls-typing-dot"></div>
+        </div>
+      `);
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+  if (source === 'mini') {
+    const body = document.getElementById('mini-chat-body');
+    if (body) {
+      body.insertAdjacentHTML('beforeend', `
+        <div class="chat-typing" id="mini-typing-indicator">
+          <div class="chat-dot"></div><div class="chat-dot"></div><div class="chat-dot"></div>
+        </div>
+      `);
+      body.scrollTop = body.scrollHeight;
+    }
+  }
+}
+function hideTypingIndicator(source) {
+  document.getElementById('ls-typing-indicator')?.remove();
+  document.getElementById('mini-typing-indicator')?.remove();
+}
+
+// ─── SMART REDIRECTION ───
+function handleSmartRedirect(domainName, source) {
+  if (typeof DOMAIN_DATA === 'undefined') return;
+  const idx = DOMAIN_DATA.findIndex(d =>
+    d.title.toLowerCase().includes(domainName.toLowerCase()) ||
+    domainName.toLowerCase().includes(d.title.toLowerCase())
+  );
+  if (idx === -1) return;
+
+  // Add a redirect toast to LSphere AI messages area
+  const container = document.getElementById('ls-messages');
+  if (container) {
+    container.insertAdjacentHTML('beforeend', `
+      <div class="ls-redirect-toast" onclick="openDomain(${idx}); showTab('subdomains');">
+        🧭 Navigate to <strong>${DOMAIN_DATA[idx].title}</strong> → Click here to open
+      </div>
+    `);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // Auto-navigate after 2 seconds
+  setTimeout(() => {
+    openDomain(idx);
+    showTab('subdomains');
+  }, 2500);
+}
+
+// ─── PUBLIC WRAPPERS ───
+function sendLSphereMessage(preset) {
+  const inputEl = document.getElementById('ls-input');
+  const text = preset || (inputEl ? inputEl.value : '');
+  if (inputEl && preset) inputEl.value = preset;
+  sendSharedMessage(text, 'lsphere');
+}
+
+function sendMiniMessage() {
+  const inputEl = document.getElementById('mini-chat-input');
+  const text = inputEl ? inputEl.value : '';
+  sendSharedMessage(text, 'mini');
+}
+
+// ─── HELPER ───
+function escHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
 }

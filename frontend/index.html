@@ -3,175 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LEARNSPHERE – Smart Personalized Learning</title>
-  <meta name="description" content="GenAI-powered adaptive learning platform for skill gap analysis and certification readiness." />
+  <title>LearnSphere – AI-Powered Personalized Learning</title>
+  <meta name="description" content="GenAI-powered personalized learning paths and certification readiness platform." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
-<!-- ═══════════ LOGIN PAGE ═══════════ -->
-<div id="page-login" class="page active">
-  <div class="auth-split">
-    <div class="auth-left">
-      <div class="auth-left-content">
-        <div class="auth-brand-badge">🎓</div>
-        <h1>Welcome to<br/><span class="brand-highlight">LEARNSPHERE</span></h1>
-        <p>Your AI-powered personalized learning companion. Unlock career paths, bridge skill gaps, and earn certifications — all tailored for you.</p>
-        <div class="auth-trust-logos">
-          <span>Trusted by learners preparing for:</span>
-          <div class="trust-icons">
-            <div class="trust-icon" title="AWS">☁️ AWS</div>
-            <div class="trust-icon" title="PMP">📋 PMP</div>
-            <div class="trust-icon" title="Cisco">🌐 Cisco</div>
-            <div class="trust-icon" title="CompTIA">🛡️ CompTIA</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="auth-right">
-      <div class="auth-card">
-        <!-- Step 1: Email -->
-        <div id="login-step-email">
-          <h2 class="auth-title">Sign In</h2>
-          <p class="auth-sub">Enter your email to continue</p>
-          <div class="input-group">
-            <label for="login-email">Email Address</label>
-            <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
-          </div>
-          <button class="btn btn-primary" id="btn-login-email" onclick="loginEmailStep()">
-            Continue <span class="btn-arrow">→</span>
-          </button>
-          <div id="login-email-error" class="error-msg hidden"></div>
-          <p class="auth-switch">Don't have an account? <a href="#" onclick="showPage('signup'); return false;">Sign Up</a></p>
-        </div>
+<div id="toast-container" class="toast-container"></div>
 
-        <!-- Step 2: Password -->
-        <div id="login-step-password" class="hidden">
-          <h2 class="auth-title">Enter Password</h2>
-          <p class="auth-sub">Welcome back, <strong id="login-email-display"></strong></p>
-          <div class="input-group">
-            <label for="login-password">Password</label>
-            <div class="password-wrap">
-              <input type="password" id="login-password" placeholder="Enter your password" />
-              <button type="button" class="toggle-pw" onclick="togglePw('login-password', this)">👁️</button>
-            </div>
-          </div>
-          <button class="btn btn-primary" onclick="loginPasswordStep()">
-            Verify & Send OTP <span class="btn-arrow">→</span>
-          </button>
-          <div id="login-pw-error" class="error-msg hidden"></div>
-          <p class="auth-back"><a href="#" onclick="loginGoBack(); return false;">← Change email</a></p>
-        </div>
-
-        <!-- Step 3: OTP -->
-        <div id="login-step-otp" class="hidden">
-          <h2 class="auth-title">Verify OTP</h2>
-          <p class="auth-sub">We sent a 6-digit code to <strong id="login-otp-email"></strong></p>
-          <div class="otp-inputs">
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="login" />
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="login" />
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="login" />
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="login" />
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="login" />
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="login" />
-          </div>
-          <button class="btn btn-primary" onclick="loginVerifyOTP()">Verify & Login</button>
-          <div id="login-otp-error" class="error-msg hidden"></div>
-          <p class="auth-back"><a href="#" onclick="loginGoBack(); return false;">← Back</a></p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════ SIGNUP PAGE ═══════════ -->
-<div id="page-signup" class="page">
-  <div class="auth-split">
-    <div class="auth-left">
-      <div class="auth-left-content">
-        <div class="auth-brand-badge">🚀</div>
-        <h1>Start Your<br/><span class="brand-highlight">Learning Journey</span></h1>
-        <p>Join thousands of learners who are closing their skill gaps and earning certifications with AI-powered personalized roadmaps.</p>
-        <div class="auth-features">
-          <div class="auth-feature"><span>✅</span> Personalized Learning Paths</div>
-          <div class="auth-feature"><span>✅</span> AI Skill Gap Analysis</div>
-          <div class="auth-feature"><span>✅</span> Certification Readiness Tracking</div>
-          <div class="auth-feature"><span>✅</span> Mock Tests & Progress Reports</div>
-        </div>
-      </div>
-    </div>
-    <div class="auth-right">
-      <div class="auth-card">
-        <!-- Signup Form -->
-        <div id="signup-step-form">
-          <h2 class="auth-title">Create Account</h2>
-          <p class="auth-sub">Fill in your details to get started</p>
-          <div class="input-group">
-            <label for="signup-name">Full Name</label>
-            <input type="text" id="signup-name" placeholder="e.g. Ramesh Kumar" />
-          </div>
-          <div class="input-group">
-            <label for="signup-email">Email Address (Gmail)</label>
-            <input type="email" id="signup-email" placeholder="you@gmail.com" />
-          </div>
-          <div class="input-group">
-            <label for="signup-password">Password</label>
-            <div class="password-wrap">
-              <input type="password" id="signup-password" placeholder="Min 8 characters" />
-              <button type="button" class="toggle-pw" onclick="togglePw('signup-password', this)">👁️</button>
-            </div>
-          </div>
-          <div class="input-group">
-            <label for="signup-confirm">Confirm Password</label>
-            <div class="password-wrap">
-              <input type="password" id="signup-confirm" placeholder="Re-enter password" />
-              <button type="button" class="toggle-pw" onclick="togglePw('signup-confirm', this)">👁️</button>
-            </div>
-          </div>
-          <div class="pw-strength hidden" id="pw-strength">
-            <div class="pw-bar"><div class="pw-bar-fill" id="pw-bar-fill"></div></div>
-            <span id="pw-strength-label"></span>
-          </div>
-          <button class="btn btn-primary" onclick="signupSubmit()">
-            Create Account <span class="btn-arrow">→</span>
-          </button>
-          <div id="signup-error" class="error-msg hidden"></div>
-          <p class="auth-switch">Already have an account? <a href="#" onclick="showPage('login'); return false;">Sign In</a></p>
-        </div>
-
-        <!-- Signup OTP -->
-        <div id="signup-step-otp" class="hidden">
-          <h2 class="auth-title">Verify Your Email</h2>
-          <p class="auth-sub">We sent a 6-digit code to <strong id="signup-otp-email"></strong></p>
-          <div class="otp-inputs">
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="signup" />
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="signup" />
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="signup" />
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="signup" />
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="signup" />
-            <input class="otp-box" maxlength="1" type="text" inputmode="numeric" data-otp="signup" />
-          </div>
-          <button class="btn btn-primary" onclick="signupVerifyOTP()">Verify Email</button>
-          <div id="signup-otp-error" class="error-msg hidden"></div>
-        </div>
-
-        <!-- Signup Success -->
-        <div id="signup-step-success" class="hidden">
-          <div class="success-state">
-            <div class="success-icon">🎉</div>
-            <h2>Registration Successful!</h2>
-            <p>Your account has been created. A confirmation email has been sent. Redirecting you to login…</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- No Auth Pages - Direct to Onboarding -->
 
 <!-- ═══════════ ONBOARDING PAGE ═══════════ -->
-<div id="page-onboarding" class="page">
+<div id="page-onboarding" class="page active">
   <div class="onboard-wrapper">
     <div class="onboard-card">
       <div class="onboard-header">
@@ -181,74 +26,60 @@
       </div>
       <div class="step-bar">
         <div class="step-dot active" id="sdot1">1</div>
-        <div class="step-line"></div>
+        <div class="step-line" id="sline1"></div>
         <div class="step-dot" id="sdot2">2</div>
-        <div class="step-line"></div>
+        <div class="step-line" id="sline2"></div>
         <div class="step-dot" id="sdot3">3</div>
       </div>
 
-      <!-- Step 1 -->
+      <!-- Step 1: Domain -->
       <div id="ob-step1" class="ob-step">
-        <h3>Your Current Skills</h3>
+        <h3>What domain are you targeting?</h3>
         <div class="input-group">
-          <label>Current Skills <span class="hint">(comma separated)</span></label>
-          <input type="text" id="ob-skills" placeholder="e.g. Python, HTML, Basic SQL" />
-        </div>
-        <div class="input-group">
-          <label>Experience Level</label>
-          <select id="ob-level">
-            <option value="beginner">Beginner (0–1 yr)</option>
-            <option value="intermediate">Intermediate (1–3 yrs)</option>
-            <option value="advanced">Advanced (3+ yrs)</option>
+          <label for="ob-domain">Certification Domain</label>
+          <select id="ob-domain">
+            <option value="">Select a domain</option>
+            <option value="Core IT & Software">Core IT & Software</option>
+            <option value="Data & Analytics">Data & Analytics</option>
+            <option value="Networking & Infrastructure">Networking & Infrastructure</option>
+            <option value="Cloud Computing">Cloud Computing</option>
+            <option value="Cybersecurity">Cybersecurity</option>
+            <option value="AI & Machine Learning">AI & Machine Learning</option>
+            <option value="Software Engineering">Software Engineering</option>
+            <option value="Business + Tech">Business + Tech</option>
+            <option value="Creative & Design">Creative & Design</option>
+            <option value="Career Development">Career Development</option>
           </select>
         </div>
-        <button class="btn btn-primary" onclick="obNext(1)">Next →</button>
+        <button class="btn btn-primary" id="btn-ob1" onclick="obNext(1)" disabled>Next <span class="btn-arrow">→</span></button>
       </div>
 
-      <!-- Step 2 -->
+      <!-- Step 2: Career Goal -->
       <div id="ob-step2" class="ob-step hidden">
-        <h3>Your Career Goal</h3>
+        <h3>What do you want to become?</h3>
         <div class="input-group">
-          <label>What do you want to become?</label>
+          <label for="ob-goal">Career Goal</label>
           <select id="ob-goal">
-            <option value="Full Stack Developer">Full Stack Developer</option>
-            <option value="Data Scientist">Data Scientist</option>
-            <option value="Machine Learning Engineer">Machine Learning Engineer</option>
-            <option value="Cloud Engineer">Cloud Engineer</option>
-            <option value="Cybersecurity Analyst">Cybersecurity Analyst</option>
-            <option value="DevOps Engineer">DevOps Engineer</option>
-            <option value="Mobile App Developer">Mobile App Developer</option>
-            <option value="UI/UX Designer">UI/UX Designer</option>
+            <option value="">Select a career goal</option>
           </select>
-        </div>
-        <div class="input-group">
-          <label>Or describe your own goal</label>
-          <input type="text" id="ob-goal-custom" placeholder="e.g. Blockchain Developer" />
         </div>
         <div class="btn-row">
           <button class="btn btn-outline" onclick="obBack(2)">← Back</button>
-          <button class="btn btn-primary" onclick="obNext(2)">Next →</button>
+          <button class="btn btn-primary" id="btn-ob2" onclick="obNext(2)" disabled>Next <span class="btn-arrow">→</span></button>
         </div>
       </div>
 
-      <!-- Step 3 -->
+      <!-- Step 3: Certification -->
       <div id="ob-step3" class="ob-step hidden">
-        <h3>Target Certification</h3>
+        <h3>Which certification are you aiming for?</h3>
         <div class="input-group">
-          <label>Which certification do you want to earn?</label>
+          <label for="ob-cert">Target Certification</label>
           <select id="ob-cert">
-            <option value="AWS Cloud Practitioner">AWS Cloud Practitioner</option>
-            <option value="Google Cloud Associate">Google Cloud Associate</option>
-            <option value="Azure Fundamentals (AZ-900)">Azure Fundamentals (AZ-900)</option>
-            <option value="TensorFlow Developer Certificate">TensorFlow Developer Certificate</option>
-            <option value="Meta Front-End Developer Certificate">Meta Front-End Developer Certificate</option>
-            <option value="Google Data Analytics Certificate">Google Data Analytics Certificate</option>
-            <option value="CompTIA Security+">CompTIA Security+</option>
-            <option value="Kubernetes Application Developer (CKAD)">CKAD</option>
+            <option value="">Select a certification</option>
           </select>
         </div>
         <div class="cert-badge">
-          <span>🏆</span> Your readiness score will be calculated by AI after your path is generated
+          <span>🏆</span> Your readiness score will be calculated after your path is generated
         </div>
         <div class="btn-row">
           <button class="btn btn-outline" onclick="obBack(3)">← Back</button>
@@ -262,8 +93,6 @@
 
 <!-- ═══════════ MAIN DASHBOARD ═══════════ -->
 <div id="page-app" class="page">
-
-  <!-- Top Header Bar -->
   <header class="top-header">
     <div class="header-inner">
       <div class="header-left">
@@ -272,6 +101,8 @@
       </div>
       <nav class="header-nav">
         <button class="header-nav-btn active" id="hnav-dashboard" onclick="showTab('dashboard')">Dashboard</button>
+        <button class="header-nav-btn" id="hnav-lsphere" onclick="showTab('lsphere')">LSphere AI</button>
+        <button class="header-nav-btn" id="hnav-domains" onclick="showTab('domains')">Explore</button>
         <button class="header-nav-btn" id="hnav-roadmap" onclick="showTab('roadmap')">Roadmap</button>
         <button class="header-nav-btn" id="hnav-mocktest" onclick="showTab('mocktest')">Mock Test</button>
       </nav>
@@ -287,26 +118,25 @@
     </div>
   </header>
 
+  <nav class="mobile-nav">
+    <button class="mobile-nav-btn active" id="mnav-dashboard" onclick="showTab('dashboard')"><span class="nav-icon">📊</span>Dashboard</button>
+    <button class="mobile-nav-btn" id="mnav-lsphere" onclick="showTab('lsphere')"><span class="nav-icon">🤖</span>AI</button>
+    <button class="mobile-nav-btn" id="mnav-domains" onclick="showTab('domains')"><span class="nav-icon">🌐</span>Explore</button>
+    <button class="mobile-nav-btn" id="mnav-roadmap" onclick="showTab('roadmap')"><span class="nav-icon">🗺️</span>Roadmap</button>
+    <button class="mobile-nav-btn" id="mnav-mocktest" onclick="showTab('mocktest')"><span class="nav-icon">📝</span>Test</button>
+  </nav>
+
   <main class="main-content">
 
     <!-- ── DASHBOARD TAB ── -->
     <section id="tab-dashboard" class="tab-section active">
-
-      <!-- HERO BANNER (Coursera-inspired) -->
       <div class="hero-banner" id="hero-banner">
         <div class="hero-left">
           <div class="hero-badge">✨ Personalized for You</div>
           <h1 class="hero-title">Unlock your <span id="hero-goal">Career</span> Path.</h1>
-          <p class="hero-desc" id="hero-desc">Based on your skill gap analysis, we've created a roadmap tailored for your dream role.</p>
-          <button class="btn btn-cta" onclick="showTab('roadmap')">
-            View Your Roadmap <span class="btn-arrow">→</span>
-          </button>
-          <div class="hero-cert-logos" id="hero-cert-logos">
-            <span class="cert-logo" title="AWS">☁️ AWS</span>
-            <span class="cert-logo" title="PMP">📋 PMP</span>
-            <span class="cert-logo" title="Cisco">🌐 Cisco</span>
-            <span class="cert-logo" title="CompTIA">🛡️ CompTIA</span>
-          </div>
+          <p class="hero-desc" id="hero-desc">Based on your skill gap analysis, we've built a roadmap tailored for your dream certification.</p>
+          <button class="btn btn-cta" onclick="showTab('roadmap')">View Your Roadmap <span class="btn-arrow">→</span></button>
+          <div class="hero-cert-logos" id="hero-cert-logos"></div>
         </div>
         <div class="hero-right">
           <div class="readiness-meter">
@@ -318,8 +148,7 @@
                 </linearGradient>
               </defs>
               <circle class="meter-bg" cx="80" cy="80" r="68"/>
-              <circle class="meter-fill" id="meter-fill" cx="80" cy="80" r="68"
-                stroke-dasharray="427" stroke-dashoffset="427"/>
+              <circle class="meter-fill" id="meter-fill" cx="80" cy="80" r="68" stroke-dasharray="427" stroke-dashoffset="427"/>
             </svg>
             <div class="meter-label">
               <span class="meter-pct" id="meter-pct">0%</span>
@@ -330,68 +159,57 @@
         </div>
       </div>
 
-      <!-- STATS ROW -->
       <div class="stats-row">
-        <div class="stat-box">
-          <div class="stat-icon">📊</div>
-          <div class="stat-info">
-            <span class="stat-number" id="stat-completed">0</span>
-            <span class="stat-label">Completed</span>
-          </div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-icon">📚</div>
-          <div class="stat-info">
-            <span class="stat-number" id="stat-remaining">0</span>
-            <span class="stat-label">Remaining</span>
-          </div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-icon">🎯</div>
-          <div class="stat-info">
-            <span class="stat-number" id="stat-phases">0</span>
-            <span class="stat-label">Phases</span>
-          </div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-icon">⏱️</div>
-          <div class="stat-info">
-            <span class="stat-number" id="stat-hours">0h</span>
-            <span class="stat-label">Est. Time</span>
-          </div>
-        </div>
+        <div class="stat-box"><div class="stat-icon">📊</div><div class="stat-info"><span class="stat-number" id="stat-completed">0</span><span class="stat-label">Completed</span></div></div>
+        <div class="stat-box"><div class="stat-icon">📚</div><div class="stat-info"><span class="stat-number" id="stat-remaining">0</span><span class="stat-label">Remaining</span></div></div>
+        <div class="stat-box"><div class="stat-icon">🎯</div><div class="stat-info"><span class="stat-number" id="stat-phases">0</span><span class="stat-label">Phases</span></div></div>
+        <div class="stat-box"><div class="stat-icon">⏱️</div><div class="stat-info"><span class="stat-number" id="stat-hours">0h</span><span class="stat-label">Est. Time</span></div></div>
       </div>
 
-      <!-- TIMELINE SECTION -->
       <div class="timeline-section" id="timeline-section">
         <div class="section-header">
           <h2>Your Multi-Step Learning Timeline</h2>
-          <button class="btn btn-outline btn-sm" onclick="regeneratePath()">🔄 Regenerate</button>
         </div>
         <div class="timeline-scroll" id="timeline-cards"></div>
       </div>
+    </section>
 
-      <!-- AI SKILL GAP SECTION -->
-      <div class="skill-gap-section" id="skill-gap-section">
-        <div class="section-header">
-          <h2>🧠 AI Skill Gap Analysis</h2>
+    <!-- ── LSPHERE AI TAB (Full Page Chat) ── -->
+    <section id="tab-lsphere" class="tab-section">
+      <div class="lsphere-layout">
+        <!-- Sidebar: Chat History -->
+        <div class="ls-sidebar">
+          <div class="ls-sidebar-head">
+            <h3>💬 Conversations</h3>
+            <button class="ls-new-chat-btn" onclick="newConversation()" title="New Chat">+ New</button>
+          </div>
+          <div class="ls-thread-list" id="ls-thread-list"></div>
         </div>
-        <p class="gap-summary" id="skill-gap-summary">Generate your learning path to see the AI analysis.</p>
-        <div class="skills-wrap" id="skills-tags"></div>
+        <!-- Main Chat Area -->
+        <div class="ls-main">
+          <div class="ls-main-head">
+            <span class="ls-main-title" id="ls-main-title">🤖 LSphere AI</span>
+            <span class="ls-main-subtitle">Your GenAI Learning Assistant — powered by Gemini</span>
+          </div>
+          <div class="ls-messages" id="ls-messages">
+            <div class="ls-welcome">
+              <div class="ls-welcome-icon">🧠</div>
+              <h2>Welcome to LSphere AI</h2>
+              <p>Ask me anything about your certifications, career path, or learning goals. I can also navigate you to the right domain automatically!</p>
+              <div class="ls-suggestions">
+                <button class="ls-suggest-btn" onclick="sendLSphereMessage('Teach me Cloud Computing')">☁️ Teach me Cloud Computing</button>
+                <button class="ls-suggest-btn" onclick="sendLSphereMessage('How to prepare for AWS Solutions Architect?')">📜 AWS Exam Prep</button>
+                <button class="ls-suggest-btn" onclick="sendLSphereMessage('Explain cybersecurity basics')">🔒 Cybersecurity Basics</button>
+                <button class="ls-suggest-btn" onclick="sendLSphereMessage('What skills do I need for data science?')">📊 Data Science Skills</button>
+              </div>
+            </div>
+          </div>
+          <div class="ls-input-area">
+            <input type="text" id="ls-input" class="ls-input" placeholder="Ask LSphere AI anything..." onkeypress="if(event.key==='Enter')sendLSphereMessage()" />
+            <button class="ls-send-btn" id="ls-send-btn" onclick="sendLSphereMessage()">➤</button>
+          </div>
+        </div>
       </div>
-
-      <!-- Loading & Empty States -->
-      <div id="loading-path" class="loading-state hidden">
-        <div class="spinner"></div>
-        <p>🤖 AI is analyzing your profile and building your path…</p>
-      </div>
-      <div id="no-path-msg" class="empty-state hidden">
-        <div class="empty-icon">🗺️</div>
-        <h3>No Learning Path Yet</h3>
-        <p>Complete your profile and generate your personalized AI learning path.</p>
-        <button class="btn btn-primary" onclick="generatePath()">🚀 Generate My Path</button>
-      </div>
-
     </section>
 
     <!-- ── ROADMAP TAB ── -->
@@ -404,7 +222,7 @@
       <div id="roadmap-empty" class="empty-state">
         <div class="empty-icon">🛣️</div>
         <h3>No Roadmap Yet</h3>
-        <p>Go to Dashboard and generate your learning path first.</p>
+        <p>Go to Dashboard and complete your profile first.</p>
       </div>
     </section>
 
@@ -412,39 +230,81 @@
     <section id="tab-mocktest" class="tab-section">
       <div class="section-header">
         <h2>Mock Test</h2>
-        <p class="page-subhead">AI-generated questions based on your current skill gaps</p>
+        <p class="page-subhead">Test your knowledge with topic-specific questions</p>
       </div>
       <div id="test-start" class="test-start-card">
         <div class="test-icon">📝</div>
         <h3>Ready to Test Your Knowledge?</h3>
-        <p>5 AI-generated multiple choice questions based on what you still need to learn.</p>
-        <button class="btn btn-primary" onclick="startMockTest()">Start Test</button>
+        <p>10 multiple-choice questions based on your learning path topics.</p>
+        <button class="btn btn-primary btn-sm" onclick="startMockTest()" style="width:auto;margin:0 auto;">Start Test</button>
       </div>
       <div id="test-loading" class="loading-state hidden">
         <div class="spinner"></div>
-        <p>🤖 Generating personalized questions…</p>
+        <p>Generating questions…</p>
       </div>
-      <div id="test-area" class="hidden">
-        <div class="test-progress-bar">
-          <div id="test-prog-fill" class="test-prog-fill"></div>
-        </div>
-        <div id="question-container"></div>
-        <button class="btn btn-primary btn-sm" id="btn-next-q" onclick="nextQuestion()" style="display:none; margin: 0 auto;">Next Question →</button>
+      <div id="test-area" class="quiz-wrapper hidden"></div>
+      <div id="test-results" class="hidden"></div>
+    </section>
+
+    <!-- ── EXPLORE DOMAINS TAB ── -->
+    <section id="tab-domains" class="tab-section">
+      <div class="section-header">
+        <h2>🌐 Explore Learning Domains</h2>
+        <p class="page-subhead">Choose a domain to start your structured learning journey</p>
       </div>
-      <div id="test-results" class="hidden">
-        <div class="result-card">
-          <div class="result-icon" id="result-icon">🎉</div>
-          <h3 id="result-title">Test Complete!</h3>
-          <p id="result-score-label" class="result-score"></p>
-          <div id="result-review"></div>
-          <button class="btn btn-primary" onclick="resetTest()">Retake Test</button>
-        </div>
+      <div class="domain-grid" id="domain-grid"></div>
+    </section>
+
+    <!-- ── SUB-DOMAINS TAB ── -->
+    <section id="tab-subdomains" class="tab-section">
+      <div class="breadcrumbs" id="subdomain-breadcrumbs"></div>
+      <div class="section-header">
+        <h2 id="subdomain-title"></h2>
+        <p class="page-subhead" id="subdomain-desc"></p>
       </div>
+      <div class="subdomain-grid" id="subdomain-grid"></div>
+    </section>
+
+    <!-- ── DOMAIN DETAIL TAB ── -->
+    <section id="tab-domain-detail" class="tab-section">
+      <div class="breadcrumbs" id="detail-breadcrumbs"></div>
+      <div id="detail-content" class="detail-page"></div>
     </section>
 
   </main>
 </div>
 
+<!-- Phase Learning Modal -->
+<div id="phase-modal" class="phase-modal hidden">
+  <div class="phase-modal-content" id="phase-modal-body"></div>
+</div>
+
+<!-- ═══════════ LS MINI (Floating AI Assistant) ═══════════ -->
+<div class="chat-widget" id="ai-chat-widget">
+  <div class="chat-window hidden" id="chat-window">
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <span class="chat-header-icon">🤖</span>
+        <span class="chat-header-title">LS Mini</span>
+      </div>
+      <div class="chat-header-actions">
+        <button class="chat-expand-btn" onclick="showTab('lsphere')" title="Open Full LSphere AI">⛶</button>
+        <button class="chat-close-btn" onclick="toggleMiniChat()">✕</button>
+      </div>
+    </div>
+    <div class="chat-body" id="mini-chat-body"></div>
+    <div class="chat-footer">
+      <input type="text" id="mini-chat-input" class="chat-input" placeholder="Quick question..." onkeypress="if(event.key==='Enter')sendMiniMessage()" />
+      <button class="chat-send-btn" id="mini-send-btn" onclick="sendMiniMessage()">➤</button>
+    </div>
+  </div>
+  <button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleMiniChat()">
+    💬 LS Mini
+  </button>
+</div>
+
+<script src="js/domains.js"></script>
+<script src="js/quiz-data.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
