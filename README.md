@@ -1,6 +1,38 @@
-# 🌐 LEARNSPHERE
-### GenAI-Powered Personalized Learning Path & Certification Readiness System
+# 🎓 LEARNSPHERE
+### Smart Personalized Learning – Phase-by-Phase Roadmap & Certification Readiness
 **SDG 4 – Quality Education | SKILL23 EdTech Theme**
+
+LearnSphere is a modern, AI-powered ed-tech platform that mirrors the corporate yet minimalist feel of industry leaders like Coursera. It analyzes your current skills against your career goals to generate a personalized, phase-based learning timeline and tracks your certification readiness in real-time.
+
+---
+
+## 🎨 New UI & Aesthetic
+The platform has been completely rebuilt with a **Corporate-Minimalist Light Theme**:
+- **Coursera-Inspired Layout**: Clean white header, off-white background (#F5F7FA).
+- **Hero Banner**: Mint-green (#E6F4EA) hero section with a personalized headline and **40% Readiness Meter**.
+- **Visuals**: Smooth progress rings, horizontal scrollable timeline cards, and clean typography (Inter).
+
+---
+
+## 🔐 Advanced Authentication & Security
+A secure, multi-step authentication system has been implemented:
+- **Signup**: Full registration (Name, Gmail, Password) → 6-digit OTP verification via Resend API → Redirect to Login.
+- **Login**: Two-step flow (Email → Password → OTP Verification) for maximum security.
+- **RBAC**: Role-Based Access Control to protect sensitive routes and block unauthorized admin access.
+- **Password Security**: Built-in password strength meter and visibility toggles.
+- **OTP Service**: Integrated with **Resend API** for reliable email delivery.
+
+---
+
+## ✨ Core Features
+| Feature | Description |
+|---|---|
+| 🧠 **AI Skill Gap Analysis** | Compares your current skills against your target role (Full Stack, Data Science, etc.). |
+| 🗺️ **Multi-Step Timeline** | Horizontal, phase-based roadmap (e.g., Phase 1: Core Fundamentals) with duration and status badges. |
+| 📊 **Readiness Meter** | Visual green circular progress ring showing how ready you are for your target certification (AWS, PMP, Cisco, CompTIA). |
+| 📊 **Real-time Stats** | Track "Completed", "Remaining", "Phases", and "Estimated Time" directly on your dashboard. |
+| 📝 **AI Mock Tests** | Practice MCQs generated specifically for your identified skill gaps. |
+| 🔄 **Persistence** | Session-based state management with per-user path saving. |
 
 ---
 
@@ -8,98 +40,43 @@
 ```
 LearnSphere/
 ├── frontend/
-│   ├── index.html          ← Main app (all pages)
-│   ├── css/style.css       ← Full glassmorphism UI
-│   └── js/app.js           ← All frontend logic
+│   ├── index.html          ← Main App (Split Auth, Dashboard, Onboarding)
+│   ├── css/style.css       ← Clean Corporate-Minimalist CSS
+│   └── js/app.js           ← Full Auth Logic, OTP, RBAC, and Dashboard Engine
 └── backend/
-    ├── server.js           ← Express entry point
-    ├── .env.example        ← Config template
-    ├── models/
-    │   ├── User.js         ← User schema (OTP, profile, progress)
-    │   └── LearningPath.js ← AI path schema
-    ├── services/
-    │   ├── AuthService.js  ← OTP generation + Nodemailer email
-    │   └── AIEngine.js     ← Gemini AI integration
-    └── routes/
-        ├── auth.js         ← /send-otp, /verify-otp, /onboarding, /me
-        ├── path.js         ← /generate, /me, /complete-topic
-        └── test.js         ← /generate (mock MCQs)
+    ├── server.js           ← Express API (JWT, Gemini AI, Resend SMTP)
+    ├── package.json        ← Backend Dependencies
+    ├── models/             ← Mongoose Schemas (User, LearningPath)
+    └── routes/             ← API Handlers (Auth, Path Generation)
 ```
 
 ---
 
-## ⚙️ Backend Setup
+## 🏗️ Getting Started
 
-### 1. Prerequisites
-- Node.js v18+ — [nodejs.org](https://nodejs.org)
-- MongoDB — [mongodb.com](https://www.mongodb.com/try/download/community)
+### 1. Frontend
+The frontend is a standalone HTML/CSS/JS application. 
+- Open `frontend/index.html` in your browser.
+- *Note: For full authentication functionality, ensure the backend or a local server is running.*
 
-### 2. Install Dependencies
-```bash
-cd backend
-npm install
-```
-
-### 3. Configure Environment
-```bash
-copy .env.example .env
-```
-Edit `.env` and fill in:
-| Variable | Description |
-|---|---|
-| `MONGODB_URI` | MongoDB connection string |
-| `JWT_SECRET` | Any random secret string |
-| `GEMINI_API_KEY` | From [Google AI Studio](https://aistudio.google.com/) |
-| `EMAIL_USER` | Your Gmail address |
-| `EMAIL_PASS` | Gmail **App Password** (not your real password!) |
-
-> **Get Gmail App Password:** Google Account → Security → 2-Step Verification → App passwords
-
-### 4. Start Backend
-```bash
-npm run dev    # development (auto-reload)
-# or
-npm start      # production
-```
-Backend runs at `http://localhost:5000`
-
----
-
-## 🎨 Frontend Setup
-
-No build step needed. Simply open `frontend/index.html` in your browser.
-
-> Make sure the backend is running first so API calls work.
-
----
-
-## ✨ Features
-
-| Feature | Description |
-|---|---|
-| 📧 **Email OTP Login** | Secure 6-digit OTP via Gmail SMTP |
-| 🧠 **AI Skill Gap Analysis** | Gemini analyzes your skills vs goal |
-| 🗺️ **Adaptive Learning Path** | Phase-by-phase AI roadmap |
-| 📊 **Readiness Score** | % certification readiness (radial chart) |
-| ✅ **Progress Tracking** | Mark topics complete, score updates live |
-| 📝 **AI Mock Test** | 5 MCQs generated from your gap topics |
-
----
-
-## 🔐 Security Features
-- OTP cleared from DB immediately after verification
-- JWT tokens with 7-day expiry
-- API keys stored in `.env` (never committed)
-- CORS enabled for cross-origin requests
+### 2. Backend Setup
+1. `cd backend`
+2. `npm install`
+3. Configure your `.env` with:
+   - `MONGODB_URI`
+   - `JWT_SECRET`
+   - `GEMINI_API_KEY`
+   - `RESEND_API_KEY` (re_JVdRXyad...)
+4. `npm start`
 
 ---
 
 ## 🏗️ Architecture
 ```
-User → Frontend (HTML/CSS/JS)
-          ↓ REST API (JWT)
+User → Frontend (HTML5/CSS3/JS)
+          ↓ REST API (JWT + RBAC)
      Express Backend
-       ├── MongoDB       ← User profiles & paths
-       ├── Nodemailer    ← Email OTP delivery
-       └── Gemini AI     ← Learning path + test generation
+        ├── MongoDB         ← Profiles & Saved Paths
+        ├── Resend API      ← Secure OTP Delivery
+        └── Gemini AI       ← Personalized Path & MCQ Generation
 ```
