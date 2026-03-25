@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LEARNSPHERE – Smart Personalized Learning</title>
+  <meta name="description" content="GenAI-powered adaptive learning platform for skill gap analysis and certification readiness." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ═══════════ LOGIN PAGE ═══════════ -->
+<div id="page-login" class="page active">
+  <div class="auth-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+  <div class="auth-card glass">
+    <div class="brand">
+      <div class="brand-icon">🌐</div>
+      <h1 class="brand-name">LEARNSPHERE</h1>
+      <p class="brand-tagline">Smart Personalized Learning</p>
+    </div>
+    <div id="step-email">
+      <h2 class="form-title">Welcome Back</h2>
+      <p class="form-sub">Enter your email to receive a login code</p>
+      <div class="input-group">
+        <label for="login-email">Email Address</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <button class="btn btn-primary" id="btn-send-otp" onclick="sendOTP()">
+        <span>Send OTP</span> <span class="btn-icon">→</span>
+      </button>
+      <div id="login-error" class="error-msg hidden"></div>
+    </div>
+
+    <div id="step-otp" class="hidden">
+      <h2 class="form-title">Check Your Email</h2>
+      <p class="form-sub">We sent a 6-digit code to <strong id="otp-email-label"></strong></p>
+      <div class="otp-inputs">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" id="o1" />
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" id="o2" />
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" id="o3" />
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" id="o4" />
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" id="o5" />
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" id="o6" />
+      </div>
+      <button class="btn btn-primary" onclick="verifyOTP()">Verify &amp; Login</button>
+      <p class="resend-link">Didn't receive? <a href="#" onclick="showEmailStep(); return false;">Try again</a></p>
+      <div id="otp-error" class="error-msg hidden"></div>
+    </div>
+    <div class="auth-footer">SDG 4 – Quality Education &nbsp;|&nbsp; SKILL23</div>
+  </div>
+</div>
+
+<!-- ═══════════ ONBOARDING PAGE ═══════════ -->
+<div id="page-onboarding" class="page">
+  <div class="auth-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+  <div class="onboard-card glass">
+    <div class="onboard-header">
+      <div class="brand-icon small">🌐</div>
+      <h2>Let's Build Your Profile</h2>
+      <p>Help us personalize your learning journey</p>
+    </div>
+    <div class="step-bar">
+      <div class="step-dot active" id="sdot1">1</div>
+      <div class="step-line"></div>
+      <div class="step-dot" id="sdot2">2</div>
+      <div class="step-line"></div>
+      <div class="step-dot" id="sdot3">3</div>
+    </div>
+
+    <!-- Step 1 -->
+    <div id="ob-step1" class="ob-step">
+      <h3>Your Name & Current Skills</h3>
+      <div class="input-group">
+        <label>Full Name</label>
+        <input type="text" id="ob-name" placeholder="e.g. Ramesh Kumar" />
+      </div>
+      <div class="input-group">
+        <label>Current Skills <span class="hint">(comma separated)</span></label>
+        <input type="text" id="ob-skills" placeholder="e.g. Python, HTML, Basic SQL" />
+      </div>
+      <div class="input-group">
+        <label>Experience Level</label>
+        <select id="ob-level">
+          <option value="beginner">Beginner (0–1 yr)</option>
+          <option value="intermediate">Intermediate (1–3 yrs)</option>
+          <option value="advanced">Advanced (3+ yrs)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="obNext(1)">Next →</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="ob-step2" class="ob-step hidden">
+      <h3>Your Career Goal</h3>
+      <div class="input-group">
+        <label>What do you want to become?</label>
+        <select id="ob-goal">
+          <option value="Full Stack Developer">Full Stack Developer</option>
+          <option value="Data Scientist">Data Scientist</option>
+          <option value="Machine Learning Engineer">Machine Learning Engineer</option>
+          <option value="Cloud Engineer">Cloud Engineer</option>
+          <option value="Cybersecurity Analyst">Cybersecurity Analyst</option>
+          <option value="DevOps Engineer">DevOps Engineer</option>
+          <option value="Mobile App Developer">Mobile App Developer</option>
+          <option value="UI/UX Designer">UI/UX Designer</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Or describe your own goal</label>
+        <input type="text" id="ob-goal-custom" placeholder="e.g. Blockchain Developer" />
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="obBack(2)">← Back</button>
+        <button class="btn btn-primary" onclick="obNext(2)">Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="ob-step3" class="ob-step hidden">
+      <h3>Target Certification</h3>
+      <div class="input-group">
+        <label>Which certification do you want to earn?</label>
+        <select id="ob-cert">
+          <option value="AWS Cloud Practitioner">AWS Cloud Practitioner</option>
+          <option value="Google Cloud Associate">Google Cloud Associate</option>
+          <option value="Azure Fundamentals (AZ-900)">Azure Fundamentals (AZ-900)</option>
+          <option value="TensorFlow Developer Certificate">TensorFlow Developer Certificate</option>
+          <option value="Meta Front-End Developer Certificate">Meta Front-End Developer Certificate</option>
+          <option value="Google Data Analytics Certificate">Google Data Analytics Certificate</option>
+          <option value="CompTIA Security+">CompTIA Security+</option>
+          <option value="Kubernetes Application Developer (CKAD)">Kubernetes Application Developer (CKAD)</option>
+        </select>
+      </div>
+      <div class="cert-badge">
+        <span>🏆</span> Your readiness score will be calculated by AI after your path is generated
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="obBack(3)">← Back</button>
+        <button class="btn btn-primary" id="btn-ob-finish" onclick="submitOnboarding()">🚀 Generate My Path</button>
+      </div>
+      <div id="ob-error" class="error-msg hidden"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MAIN APP ═══════════ -->
+<div id="page-app" class="page">
+
+  <!-- Sidebar Nav -->
+  <nav class="sidebar glass">
+    <div class="sidebar-brand">
+      <div class="brand-icon small">🌐</div>
+      <span>LEARNSPHERE</span>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-item active" id="nav-dashboard" onclick="showTab('dashboard')">
+        <span class="nav-icon">📊</span> Dashboard
+      </li>
+      <li class="nav-item" id="nav-roadmap" onclick="showTab('roadmap')">
+        <span class="nav-icon">🗺️</span> Roadmap
+      </li>
+      <li class="nav-item" id="nav-mocktest" onclick="showTab('mocktest')">
+        <span class="nav-icon">📝</span> Mock Test
+      </li>
+    </ul>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="avatar" id="sidebar-avatar">U</div>
+        <div>
+          <div class="user-name" id="sidebar-name">Loading…</div>
+          <div class="user-email" id="sidebar-email"></div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">⇠ Logout</button>
+    </div>
+  </nav>
+
+  <!-- Content Area -->
+  <main class="main-content">
+
+    <!-- ── DASHBOARD TAB ── -->
+    <section id="tab-dashboard" class="tab-section active">
+      <div class="page-header">
+        <h2>Your Dashboard</h2>
+        <button class="btn btn-primary btn-sm" onclick="regeneratePath()">🔄 Regenerate Path</button>
+      </div>
+
+      <div class="stats-grid">
+        <!-- Readiness Score -->
+        <div class="stat-card glass">
+          <h4>Certification Readiness</h4>
+          <div class="radial-wrap">
+            <svg class="radial-chart" viewBox="0 0 120 120">
+              <circle class="radial-bg" cx="60" cy="60" r="50"/>
+              <circle class="radial-fill" id="radial-fill" cx="60" cy="60" r="50"
+                stroke-dasharray="314" stroke-dashoffset="314"/>
+            </svg>
+            <div class="radial-label">
+              <span class="radial-pct" id="readiness-pct">0%</span>
+              <span class="radial-sub">Ready</span>
+            </div>
+          </div>
+          <p class="stat-cert" id="stat-cert">–</p>
+        </div>
+
+        <!-- Progress -->
+        <div class="stat-card glass">
+          <h4>Overall Progress</h4>
+          <div class="progress-big">
+            <div class="progress-track">
+              <div class="progress-bar-fill" id="overall-bar"></div>
+            </div>
+            <span id="overall-pct-label">0 / 0 topics</span>
+          </div>
+
+          <div class="mini-stats">
+            <div class="mini-stat">
+              <span class="mini-num" id="stat-completed">0</span>
+              <span class="mini-lbl">Completed</span>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-num" id="stat-remaining">0</span>
+              <span class="mini-lbl">Remaining</span>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-num" id="stat-phases">0</span>
+              <span class="mini-lbl">Phases</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skill Gap Summary -->
+        <div class="stat-card glass wide">
+          <h4>🧠 AI Skill Gap Analysis</h4>
+          <p id="skill-gap-summary" class="gap-summary">Generate your learning path to see the AI analysis.</p>
+          <div class="skills-wrap" id="skills-tags"></div>
+        </div>
+      </div>
+
+      <div id="loading-path" class="loading-state hidden">
+        <div class="spinner"></div>
+        <p>🤖 AI is analyzing your profile and building your path…</p>
+      </div>
+      <div id="no-path-msg" class="empty-state">
+        <div class="empty-icon">🗺️</div>
+        <h3>No Learning Path Yet</h3>
+        <p>Complete your profile and generate your personalized AI learning path.</p>
+        <button class="btn btn-primary" onclick="generatePath()">🚀 Generate My Path</button>
+      </div>
+    </section>
+
+    <!-- ── ROADMAP TAB ── -->
+    <section id="tab-roadmap" class="tab-section">
+      <div class="page-header">
+        <h2>Your Learning Roadmap</h2>
+        <p id="roadmap-goal-label" class="page-subhead"></p>
+      </div>
+      <div id="roadmap-container" class="roadmap-timeline"></div>
+      <div id="roadmap-empty" class="empty-state">
+        <div class="empty-icon">🛣️</div>
+        <h3>No Roadmap Yet</h3>
+        <p>Go to Dashboard and generate your learning path first.</p>
+      </div>
+    </section>
+
+    <!-- ── MOCK TEST TAB ── -->
+    <section id="tab-mocktest" class="tab-section">
+      <div class="page-header">
+        <h2>Mock Test</h2>
+        <p class="page-subhead">AI-generated questions based on your current skill gaps</p>
+      </div>
+      <div id="test-start" class="test-start-card glass">
+        <div class="test-icon">📝</div>
+        <h3>Ready to Test Your Knowledge?</h3>
+        <p>5 AI-generated multiple choice questions based on what you still need to learn will be prepared for you.</p>
+        <button class="btn btn-primary" onclick="startMockTest()">Start Test</button>
+      </div>
+      <div id="test-loading" class="loading-state hidden">
+        <div class="spinner"></div>
+        <p>🤖 Generating personalized questions…</p>
+      </div>
+      <div id="test-area" class="hidden">
+        <div class="test-progress-bar">
+          <div id="test-prog-fill" class="test-prog-fill"></div>
+        </div>
+        <div id="question-container"></div>
+        <button class="btn btn-primary" id="btn-next-q" onclick="nextQuestion()" style="display:none">Next Question →</button>
+      </div>
+      <div id="test-results" class="hidden">
+        <div class="result-card glass">
+          <div class="result-icon" id="result-icon">🎉</div>
+          <h3 id="result-title">Test Complete!</h3>
+          <p id="result-score-label" class="result-score"></p>
+          <div id="result-review"></div>
+          <button class="btn btn-primary" onclick="resetTest()">Retake Test</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
